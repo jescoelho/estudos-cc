@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(playground)",
+      "Skill(model-to-python)",
+      "Read(//c/Users/jecoe/.claude/**)",
+      "Bash(dir \"C:\\\\Users\\\\jecoe\\\\.claude\")",
+      "Bash(Get-Content *)",
+      "Bash(python *)",
+      "Skill(playground:playground)",
+      "Bash(start *)",
+      "Bash(git -C \"C:\\\\Users\\\\jecoe\\\\grafos\\\\aplicacao\" status)",
+      "Bash(git -C \"C:\\\\Users\\\\jecoe\\\\grafos\\\\aplicacao\" log --oneline -5)",
+      "Bash(git *)"
+    ]
+  }
+}
