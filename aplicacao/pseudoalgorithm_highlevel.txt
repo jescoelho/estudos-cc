@@ -1,0 +1,56 @@
+Algoritmo 1 — VaR Ibovespa Modelo Bancário (Visão Geral)
+
+REQUIRE: prices         : vetor de reais [> 0] — RETORNOS_HIST!B3:B522
+         cenarios_mc    : vetor de reais [dim=1000, fixos] — MONTE_CARLO!B15:B1014
+         cenarios_stress: tabela (nome, choque) — STRESS_TEST!B4:B29
+         α₉₉            : real ∈ (0,1) [= 0,99] — PARÂMETROS!B4
+         α₉₅            : real ∈ (0,1) [= 0,95] — PARÂMETROS!B5
+         h               : inteiro [= 10 dias úteis] — PARÂMETROS!B9
+         N               : inteiro [= 252 dias/ano] — PARÂMETROS!B10
+         λ               : real ∈ (0,1) [= 0,94] — PARÂMETROS!B21
+         V               : real [> 0, BRL] — PARÂMETROS!B24
+
+ENSURE:  VaR_{α₉₉,1d} e VaR_{α₉₉,10d} em % e BRL (Histórico, Paramétrico, EWMA, Monte Carlo)
+         ES_{α₉₉,1d} (Histórico, Monte Carlo)
+         n_excecoes, semáforo Basileia (Backtesting)
+         tabela de cenários de estresse com severidade classificada
+         Resumo executivo consolidado com alerta de limite
+
+// --- Camada 1: Série de Retornos ---
+{r_t} ← CALL calcular_retornos_log(prices)
+
+// --- Camada 2: Estatísticas Descritivas ---
+{μ̂, σ̂, σ̂_anual, n} ← CALL calcular_estatisticas_retornos({r_t}, N)
+
+// --- Camada 3: VaR por Simulação Histórica [branch independente] ---
+VaR_HIST ← CALL calcular_var_historico({r_t}, α₉₉, α₉₅, h, V)
+
+// --- Camada 4: VaR Paramétrico (Delta-Normal) [branch independente] ---
+VaR_PARAM ← CALL calcular_var_parametrico({r_t}, α₉₉, α₉₅, h, V,
+                                            VaR_HIST.var_99_1d_pct, VaR_HIST.var_95_1d_pct)
+
+// --- Camada 5a: Volatilidade EWMA [branch independente, P9] ---
+EWMA ← CALL calcular_ewma_volatilidade({r_t}, λ, z₉₉=2,326, V, N)
+
+// --- Camada 5b: Backtesting Basileia [branch independente, P7] ---
+BACKTEST ← CALL calcular_backtesting({r_t}, VaR_PARAM.var_99_1d_pct,
+                                      n_dias=250, zona_verde=4, zona_vermelha=10)
+
+// --- Camada 5c: Testes de Estresse [branch independente] ---
+STRESS ← CALL calcular_stress_test(cenarios_stress, VaR_PARAM.var_99_1d_pct, σ̂, V)
+
+// --- Camada 5d: Monte Carlo sobre cenários fixos [branch independente] ---
+MC ← CALL calcular_var_monte_carlo(cenarios_mc, V)
+
+// --- Camada 6: Agregação Executiva [P3 — Agregador] ---
+RESUMO ← CALL calcular_resumo_executivo(VaR_HIST, VaR_PARAM, EWMA, MC, BACKTEST, V)
+
+RETURN { retornos: {r_t},
+         estatisticas: {μ̂, σ̂, σ̂_anual, n},
+         var_historico: VaR_HIST,
+         var_parametrico: VaR_PARAM,
+         ewma: EWMA,
+         backtesting: BACKTEST,
+         stress_test: STRESS,
+         monte_carlo: MC,
+         resumo_executivo: RESUMO }

@@ -1,0 +1,341 @@
+════════════════════════════════════════════════════════════════════════════
+ALGORITMO 1 — VaR IBOVESPA MODELO BANCÁRIO (Pseudoalgoritmo Detalhado)
+════════════════════════════════════════════════════════════════════════════
+
+REQUIRE: prices         : vetor de reais [> 0] — RETORNOS_HIST!B3:B522
+         cenarios_mc    : vetor de reais [dim=1000] — MONTE_CARLO!B15:B1014
+         cenarios_stress: tabela (nome, retorno_shock) — STRESS_TEST!B4:B29
+         α₉₉            : real ∈ (0,1) — PARÂMETROS!B4
+         α₉₅            : real ∈ (0,1) — PARÂMETROS!B5
+         h               : inteiro > 0 — PARÂMETROS!B9
+         N               : inteiro > 0 — PARÂMETROS!B10
+         λ               : real ∈ (0,1) — PARÂMETROS!B21
+         V               : real > 0 — PARÂMETROS!B24
+         n_bt            : inteiro > 0 [= 250] — PARÂMETROS!B14
+         zona_verde      : inteiro ≥ 0 [= 4] — PARÂMETROS!B28
+         zona_vermelha   : inteiro ≥ 0 [= 10] — PARÂMETROS!B30
+
+ENSURE:  VaR_{α,h} (Histórico, Paramétrico, EWMA, Monte Carlo) em % e BRL
+         ES_{α₉₉,1d} (Histórico, Monte Carlo)
+         n_excecoes, taxa_excecao, semáforo Basileia
+         tabela de estresse com severidade
+         resumo_executivo consolidado
+
+// --- 1. Validação de Entrada ---
+IF |prices| ≤ 1 THEN RAISE ValueError("série de preços requer ao menos 2 observações") END IF
+IF any(prices ≤ 0) THEN RAISE ValueError("preços devem ser positivos") END IF
+    // NOT IN ORIGINAL ARTEFACT — added in derivation
+IF prices contém NaN THEN RAISE ValueError("série de preços contém NaN") END IF
+    // NOT IN ORIGINAL ARTEFACT — added in derivation
+IF NOT α₉₉ ∈ (0,1) THEN RAISE ValueError("α₉₉ fora de (0,1)") END IF
+IF NOT α₉₅ ∈ (0,1) THEN RAISE ValueError("α₉₅ fora de (0,1)") END IF
+IF NOT λ ∈ (0,1) THEN RAISE ValueError("λ fora de (0,1)") END IF
+IF V ≤ 0 THEN RAISE ValueError("nocional deve ser positivo") END IF
+IF |cenarios_mc| ≠ 1000 THEN RAISE ValueError("cenários MC devem ter 1000 elementos") END IF
+IF N ≤ 0 THEN RAISE ValueError("du_ano deve ser positivo") END IF
+    // NOT IN ORIGINAL ARTEFACT — added in derivation
+IF h ≤ 0 THEN RAISE ValueError("horizonte deve ser positivo") END IF
+    // NOT IN ORIGINAL ARTEFACT — added in derivation
+
+// --- 2. Retornos Logarítmicos --- [RETORNOS_HIST!C4:C522]
+{r_t} ← CALL calcular_retornos_log(prices)
+
+// --- 3. Estatísticas Descritivas --- [RETORNOS_HIST!B525:B533]
+{μ̂, σ̂, n, σ̂_anual, r_total} ← CALL calcular_estatisticas_retornos({r_t}, N)
+
+// --- 4. VaR Histórico [branch A] ---
+VaR_HIST ← CALL calcular_var_historico({r_t}, α₉₉, α₉₅, h, V)
+
+// --- 5. VaR Paramétrico [branch B] ---
+VaR_PARAM ← CALL calcular_var_parametrico({r_t}, α₉₉, α₉₅, h, V,
+                                            VaR_HIST.var_99_1d_pct, VaR_HIST.var_95_1d_pct)
+
+// --- 6. EWMA [branch C — P9] ---
+EWMA ← CALL calcular_ewma_volatilidade({r_t}, λ, z₉₉=2,326, V, N)
+
+// --- 7. Backtesting [branch D — P7] ---
+BACKTEST ← CALL calcular_backtesting({r_t}, VaR_PARAM.var_99_1d_pct,
+                                      n_bt, zona_verde, zona_vermelha)
+
+// --- 8. Stress Test [branch E] ---
+STRESS ← CALL calcular_stress_test(cenarios_stress, VaR_PARAM.var_99_1d_pct,
+                                    VaR_PARAM.sigma_diaria, V)
+
+// --- 9. Monte Carlo [branch F — valores fixos] ---
+MC ← CALL calcular_var_monte_carlo(cenarios_mc, V)
+
+// --- 10. Resumo Executivo [P3] ---
+RESUMO ← CALL calcular_resumo_executivo(VaR_HIST, VaR_PARAM, EWMA, MC, BACKTEST, V)
+
+RETURN { retornos: {r_t}, estatisticas: {μ̂,σ̂,n,σ̂_anual,r_total},
+         var_historico: VaR_HIST, var_parametrico: VaR_PARAM,
+         ewma: EWMA, backtesting: BACKTEST,
+         stress_test: STRESS, monte_carlo: MC,
+         resumo_executivo: RESUMO }
+
+
+════════════════════════════ SUB-FUNÇÕES ════════════════════════════
+
+────────────────────────────────────────────────────────────────────
+FUNCTION calcular_retornos_log(prices: vetor[> 0]) → {r_t}: vetor de reais
+"""Retornos log ln(Pt/Pt-1).
+   Computed from: prices (RETORNOS_HIST!B3:B522)
+   Used by: var_hist, sigma_daily, ewma_variance, backtest, stress_test"""
+
+  // --- Validação de Entrada ---
+  IF |prices| ≤ 1 THEN RAISE ValueError("série curta demais") END IF
+  IF any(prices ≤ 0) THEN RAISE ValueError("preço não-positivo")  // NOT IN ORIGINAL
+  END IF
+
+  // --- Cálculo ---
+  FOR t ← 1 TO |prices|−1 DO
+    r_t[t] ← ln(prices[t] / prices[t−1])   // RETORNOS_HIST!C4 = LN(B4/B3)
+  END FOR
+
+  RETURN {r_t}
+
+END FUNCTION
+
+────────────────────────────────────────────────────────────────────
+FUNCTION calcular_estatisticas_retornos(r: vetor, N: inteiro) → {μ̂, σ̂, n, σ̂_anual, r_total}
+"""Estatísticas descritivas.
+   Computed from: log_returns, du_ano (RETORNOS_HIST!B525:B533)"""
+
+  // --- Validação ---
+  IF |r| ≤ 1 THEN RAISE ValueError("série insuficiente") END IF  // NOT IN ORIGINAL
+
+  // --- Cálculo ---
+  n        ← |r|                                    // RETORNOS_HIST!B525
+  μ̂        ← (1/n) · Σᵢ rᵢ                         // RETORNOS_HIST!B526
+  σ̂        ← √( (1/(n−1)) · Σᵢ (rᵢ − μ̂)² )       // RETORNOS_HIST!B527 — ddof=1
+  σ̂_anual  ← σ̂ · √N                               // RETORNOS_HIST!B530
+  r_total  ← prices_último / prices_primeiro − 1  // RETORNOS_HIST!B533
+
+  RETURN {n, μ̂, σ̂, σ̂_anual, r_total}
+
+END FUNCTION
+
+────────────────────────────────────────────────────────────────────
+FUNCTION calcular_var_historico(r, α₉₉, α₉₅, h, V) → VaR_HIST
+"""VaR Simulação Histórica (distribuição empírica).
+   Computed from: log_returns, config (VaR_HISTÓRICO!D15:F18)
+   Used by: var_param (comparação G19), dashboard"""
+
+  // --- Validação ---
+  IF |r| = 0 THEN RAISE ValueError("série vazia") END IF
+  IF NOT α₉₉ ∈ (0,1) THEN RAISE ValueError("α₉₉ fora de (0,1)") END IF
+
+  // --- VaR/ES 99% 1 dia ---
+  q₁%       ← Quantile(r, 1−α₉₉)                   // PERCENTILE(r, 0.01) — VaR_HISTÓRICO!D15
+  VaR₉₉₁ᵈ  ← |q₁%|
+  VaR₉₉₁ᵈ_V ← VaR₉₉₁ᵈ · V                          // VaR_HISTÓRICO!E15
+  cauda₉₉   ← { rᵢ ∈ r | rᵢ < q₁% }
+  IF |cauda₉₉| = 0 THEN                             // NOT IN ORIGINAL — cauda vazia
+    ES₉₉₁ᵈ ← indefinido (emitir aviso)
+  ELSE
+    ES₉₉₁ᵈ ← |mean(cauda₉₉)|                        // VaR_HISTÓRICO!F15 — AVERAGEIF < q
+  END IF
+
+  // --- Escala √h para horizonte 10d ---
+  VaR₉₉₁₀ᵈ ← VaR₉₉₁ᵈ · √h                          // VaR_HISTÓRICO!D17
+  ES₉₉₁₀ᵈ  ← ES₉₉₁ᵈ · √h                           // VaR_HISTÓRICO!F17
+
+  // (análogo para α₉₅)
+
+  RETURN {var_99_1d_pct, var_99_1d_brl, es_99_1d,
+          var_99_10d_pct, es_99_10d,
+          var_95_1d_pct, var_95_1d_brl, es_95_1d,
+          var_95_10d_pct, es_95_10d}
+
+END FUNCTION
+
+────────────────────────────────────────────────────────────────────
+FUNCTION calcular_var_parametrico(r, α₉₉, α₉₅, h, V, VaR_HIST_99, VaR_HIST_95) → VaR_PARAM
+"""VaR Delta-Normal: VaR = z_α · σ̂ · √h.
+   Computed from: log_returns, z_scores hardcoded, config (VaR_PARAMÉTRICO!E19:F22)
+   Used by: ewma, backtest, stress_test, dashboard
+   NOTA: z_99=2,326 e z_95=1,645 são valores hardcoded na planilha
+         — NÃO derivados de Φ⁻¹(α)"""
+
+  // --- Validação ---
+  IF |r| ≤ 1 THEN RAISE ValueError("série insuficiente") END IF
+  // Parâmetros hardcoded
+  z₉₉ ← 2,326                                      // VaR_PARAMÉTRICO!B12 — HARDCODED
+  z₉₅ ← 1,645                                      // VaR_PARAMÉTRICO!B14 — HARDCODED
+
+  // --- Volatilidade diária ---
+  σ̂ ← √( (1/(|r|−1)) · Σᵢ (rᵢ − μ̂)² )           // VaR_PARAMÉTRICO!B7 = STDEV(r)
+  IF σ̂ = 0 THEN RAISE ValueError("σ̂=0: série constante") END IF  // NOT IN ORIGINAL
+
+  // --- VaR 99% ---
+  VaR₉₉₁ᵈ    ← z₉₉ · σ̂ · √1                       // VaR_PARAMÉTRICO!E19
+  VaR₉₉₁ᵈ_V  ← VaR₉₉₁ᵈ · V                         // VaR_PARAMÉTRICO!F19
+  VaR₉₉₁₀ᵈ   ← z₉₉ · σ̂ · √h                        // VaR_PARAMÉTRICO!E21
+  Δ₉₉        ← VaR₉₉₁ᵈ − VaR_HIST_99               // VaR_PARAMÉTRICO!G19
+
+  // --- VaR 95% --- (análogo)
+  VaR₉₅₁ᵈ    ← z₉₅ · σ̂ · √1                        // VaR_PARAMÉTRICO!E20
+  Δ₉₅        ← VaR₉₅₁ᵈ − VaR_HIST_95               // VaR_PARAMÉTRICO!G20
+
+  RETURN {sigma_diaria: σ̂, var_99_1d_pct, var_99_1d_brl, var_99_10d_pct,
+          var_95_1d_pct, var_95_1d_brl, var_95_10d_pct,
+          diff_99_hist_param: Δ₉₉, diff_95_hist_param: Δ₉₅}
+
+END FUNCTION
+
+────────────────────────────────────────────────────────────────────
+FUNCTION calcular_ewma_volatilidade(r, λ, z₉₉, V, N) → EWMA  [P9]
+"""Volatilidade EWMA RiskMetrics: σ²_t = λσ²_{t-1} + (1-λ)r²_{t-1}.
+   Computed from: log_returns, λ (EWMA_VOL!D3:H528)
+   Used by: ewma_var → dashboard
+   SEED: σ²₀ = 0 (reproduz EWMA_VOL!D3 — afeta ~11 primeiros períodos)"""
+
+  // --- Validação ---
+  IF NOT λ ∈ (0,1) THEN RAISE ValueError("λ fora de (0,1)") END IF
+  IF |r| = 0 THEN RAISE ValueError("série vazia") END IF
+
+  // --- Inicialização P9 ---
+  σ²[0] ← 0                                         // EWMA_VOL!D3 — seed zero
+
+  // --- Loop recursivo ---
+  FOR t ← 1 TO |r|−1 DO
+    σ²[t]     ← λ · σ²[t−1] + (1−λ) · r[t−1]²     // EWMA_VOL!D5
+    σ[t]      ← √σ²[t]                              // EWMA_VOL!E
+    σ_an[t]   ← σ[t] · √N                           // EWMA_VOL!F
+    VaR_e[t]  ← z₉₉ · σ[t]                         // EWMA_VOL!G
+    VaR_brl[t]← VaR_e[t] · V                        // EWMA_VOL!H
+  END FOR
+
+  RETURN {sigma2_series, sigma_series, sigma_anual_series,
+          var_series, var_brl_series,
+          sigma2_atual: σ²[último], var_atual: VaR_e[último]}
+
+END FUNCTION
+
+────────────────────────────────────────────────────────────────────
+FUNCTION calcular_backtesting(r, VaR_1d, n_bt, zona_verde, zona_vermelha) → BACKTEST  [P7]
+"""Backtesting Basileia: exceções e semáforo de tráfego.
+   Computed from: log_returns OOS, var_param (BACKTESTING!B3:C265)
+   Used by: dashboard"""
+
+  // --- Validação ---
+  IF |r| < n_bt THEN RAISE ValueError("série menor que janela de backtesting") END IF
+  IF VaR_1d ≤ 0 THEN RAISE ValueError("VaR deve ser positivo") END IF
+
+  // --- Janela OOS ---
+  r_oos ← r[|r|−n_bt : |r|]                         // BACKTESTING!B3:B254
+
+  // --- Contagem de exceções ---
+  n_exc ← 0
+  FOR t ← 0 TO |r_oos|−1 DO
+    IF r_oos[t] < −VaR_1d THEN                       // BACKTESTING!D3 = IF(r < -VaR)
+      excecao[t] ← VERDADEIRO
+      n_exc ← n_exc + 1
+    ELSE
+      excecao[t] ← FALSO
+    END IF
+  END FOR
+
+  taxa ← n_exc / n_bt                                // BACKTESTING!B257
+
+  // --- Semáforo Basileia (P7) --- BACKTESTING!C265
+  IF n_exc ≥ zona_vermelha THEN
+    semaforo ← "ZONA VERMELHA – MODELO SOB REVISÃO"
+  ELIF n_exc ≥ zona_verde THEN
+    semaforo ← "ZONA AMARELA – ATENÇÃO"
+  ELSE
+    semaforo ← "ZONA VERDE – MODELO APROVADO"
+  END IF
+
+  RETURN {n_excecoes: n_exc, taxa_excecao: taxa, semaforo, serie_excecoes: excecao}
+
+END FUNCTION
+
+────────────────────────────────────────────────────────────────────
+FUNCTION calcular_stress_test(cenarios, VaR_1d, σ̂, V) → tabela de estresse  [P7]
+"""Testes de estresse com classificação de severidade.
+   Computed from: cenários, var_param, σ (STRESS_TEST!B4:H29)"""
+
+  // --- Validação ---
+  IF |cenarios| = 0 THEN RAISE ValueError("nenhum cenário") END IF
+  IF VaR_1d ≤ 0 THEN RAISE ValueError("VaR deve ser positivo") END IF
+  IF σ̂ ≤ 0 THEN RAISE ValueError("σ̂ deve ser positivo") END IF  // NOT IN ORIGINAL
+
+  FOR cada cenário c EM cenarios DO
+    perda_brl[c]   ← |c.retorno| · V                // STRESS_TEST!H4
+    ratio[c]       ← |c.retorno| / VaR_1d           // STRESS_TEST!E13
+    prob[c]        ← Φ(c.retorno / σ̂)              // STRESS_TEST!F13 = NORM.DIST
+    IF ratio[c] > 3 THEN                             // STRESS_TEST!G13
+      sev[c] ← "EXTREMO"
+    ELIF ratio[c] > 1 THEN
+      sev[c] ← "SEVERO"
+    ELSE
+      sev[c] ← "MODERADO"
+    END IF
+  END FOR
+
+  RETURN tabela{nome, retorno, perda_brl, ratio_var, prob_normal, severidade}
+
+END FUNCTION
+
+────────────────────────────────────────────────────────────────────
+FUNCTION calcular_var_monte_carlo(cenarios_log, V) → MC
+"""VaR MC sobre 1000 cenários pré-gerados (valores fixos).
+   Computed from: MONTE_CARLO!B15:B1014
+   NOTA: cenários são fixos na planilha — não há re-simulação"""
+
+  // --- Validação ---
+  IF |cenarios_log| ≠ 1000 THEN RAISE ValueError("1000 cenários esperados") END IF
+  IF V ≤ 0 THEN RAISE ValueError("nocional deve ser positivo") END IF
+
+  // --- Retornos simples ---
+  r_simples ← exp(cenarios_log) − 1                 // MONTE_CARLO!C15
+  pnl       ← cenarios_log · V                      // MONTE_CARLO!D15
+
+  // --- Quantis VaR ---
+  VaR₉₉  ← |Quantile(cenarios_log, 0,01)|          // MONTE_CARLO!B1017
+  VaR₉₅  ← |Quantile(cenarios_log, 0,05)|          // MONTE_CARLO!B1019
+
+  // --- ES 99% ---
+  limiar ← Quantile(cenarios_log, 0,01)
+  cauda  ← { xᵢ ∈ cenarios_log | xᵢ < limiar }
+  IF |cauda| = 0 THEN                               // NOT IN ORIGINAL — cauda vazia
+    ES₉₉ ← indefinido (emitir aviso)
+  ELSE
+    ES₉₉ ← |mean(cauda)|                            // MONTE_CARLO!B1021
+  END IF
+
+  RETURN {var_99_pct, var_99_brl: VaR₉₉·V,
+          var_95_pct, var_95_brl: VaR₉₅·V,
+          es_99_pct, es_99_brl: ES₉₉·V,
+          retorno_min: min(cenarios_log), retorno_max: max(cenarios_log)}
+
+END FUNCTION
+
+────────────────────────────────────────────────────────────────────
+FUNCTION calcular_resumo_executivo(VaR_HIST, VaR_PARAM, EWMA, MC, BACKTEST, V) → RESUMO  [P3]
+"""Agregação executiva (P3 — in-degree=6).
+   Computed from: todos os branches (RESUMO_EXEC)
+   Used by: output final"""
+
+  // --- Coleta métricas-chave ---
+  vars ← { var_hist_99:   VaR_HIST.var_99_1d_pct,    // RESUMO_EXEC!C14
+            var_param_99: VaR_PARAM.var_99_1d_pct,   // RESUMO_EXEC!C16
+            var_ewma:     EWMA.var_atual,             // RESUMO_EXEC!C18
+            var_mc_95:    MC.var_95_pct }             // RESUMO_EXEC!C19
+
+  max_var     ← max(vars)                            // RESUMO_EXEC!B23
+  max_var_brl ← max_var · V
+
+  // --- Alerta de limite (P7) --- RESUMO_EXEC!B24
+  IF max_var > 0,05 THEN
+    alerta ← "ATENÇÃO – EXCEDE LIMITE"
+  ELSE
+    alerta ← "DENTRO DO LIMITE"
+  END IF
+
+  RETURN {vars_por_metodologia: vars, max_var_pct: max_var,
+          max_var_brl, semaforo: BACKTEST.semaforo,
+          n_excecoes: BACKTEST.n_excecoes, alerta_limite: alerta}
+
+END FUNCTION

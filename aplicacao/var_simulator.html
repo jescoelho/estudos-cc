@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VaR Ibovespa — Simulador Executivo</title>
+  <style>
+    :root {
+      --bg:        #06091a;
+      --bg-2:      #0b1023;
+      --bg-3:      #101728;
+      --bg-card:   #0d1526;
+      --border:    #162034;
+      --border-2:  #1e2d45;
+      --accent:    #2563eb;
+      --accent-2:  #3b82f6;
+      --accent-g:  rgba(59,130,246,.12);
+      --text:      #dde6f0;
+      --text-2:    #7b92b0;
+      --text-3:    #3a4d65;
+      --green:     #10b981;
+      --green-bg:  rgba(16,185,129,.1);
+      --yellow:    #f59e0b;
+      --yellow-bg: rgba(245,158,11,.1);
+      --red:       #ef4444;
+      --red-bg:    rgba(239,68,68,.1);
+      --sw: 280px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg); color: var(--text);
+      display: flex; height: 100vh; overflow: hidden;
+    }
+
+    /* ── SIDEBAR ─────────────────────────────────────── */
+    .sidebar {
+      width: var(--sw); min-width: var(--sw);
+      background: var(--bg-2); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow-y: auto; height: 100vh;
+    }
+    .sb-logo {
+      padding: 20px 20px 16px; border-bottom: 1px solid var(--border);
+    }
+    .sb-logo .brand {
+      font-size: 10px; letter-spacing: .12em; color: var(--text-3);
+      text-transform: uppercase; margin-bottom: 3px;
+    }
+    .sb-logo .title {
+      font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -.02em;
+    }
+    .sb-logo .badge {
+      display: inline-block; margin-top: 6px;
+      padding: 2px 8px;
+      background: var(--accent-g); border: 1px solid rgba(59,130,246,.3);
+      border-radius: 4px; font-size: 10px; color: var(--accent-2);
+      letter-spacing: .06em; text-transform: uppercase;
+    }
+    .sb-body { padding: 10px 0; flex: 1; }
+    .divider { height: 1px; background: var(--border); margin: 6px 20px; }
+    .sec-hd {
+      padding: 8px 20px 4px;
+      font-size: 10px; font-weight: 700; letter-spacing: .12em;
+      color: var(--text-3); text-transform: uppercase;
+    }
+    .ctrl { padding: 5px 20px; }
+    .ctrl-lbl {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 5px; font-size: 12px; color: var(--text-2);
+    }
+    .ctrl-val { font-size: 12px; font-weight: 700; color: var(--accent-2); font-variant-numeric: tabular-nums; }
+
+    input[type="range"] {
+      width: 100%; height: 3px; background: var(--border-2);
+      border-radius: 2px; outline: none; -webkit-appearance: none; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 13px; height: 13px;
+      border-radius: 50%; background: var(--accent-2); cursor: pointer;
+    }
+    input[type="number"] {
+      width: 100%; background: var(--bg-3); border: 1px solid var(--border-2);
+      border-radius: 6px; padding: 6px 8px; color: var(--text); font-size: 12px; outline: none;
+    }
+    input[type="number"]:focus { border-color: var(--accent); }
+
+    .toggle-row { display: flex; gap: 5px; }
+    .tog-btn {
+      flex: 1; padding: 5px 0; background: var(--bg-3);
+      border: 1px solid var(--border-2); border-radius: 5px;
+      color: var(--text-2); font-size: 11px; font-weight: 600;
+      cursor: pointer; text-align: center; transition: all .15s;
+    }
+    .tog-btn.active {
+      background: var(--accent-g); border-color: var(--accent); color: var(--accent-2);
+    }
+
+    .stress-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 20px; font-size: 11px; color: var(--text-2);
+      cursor: pointer; user-select: none;
+    }
+    .stress-item:hover { color: var(--text); }
+    .schk {
+      width: 13px; height: 13px; border: 1px solid var(--border-2);
+      border-radius: 3px; display: flex; align-items: center;
+      justify-content: center; flex-shrink: 0; transition: all .1s;
+    }
+    .schk.on { background: var(--accent); border-color: var(--accent); }
+    .schk.on::after { content: '✓'; font-size: 8px; color: #fff; }
+    .sret { margin-left: auto; font-size: 10px; font-variant-numeric: tabular-nums; color: var(--red); }
+
+    .sb-foot { padding: 14px 16px; border-top: 1px solid var(--border); }
+    .btn-sim {
+      width: 100%; padding: 10px; background: var(--accent); border: none;
+      border-radius: 7px; color: #fff; font-size: 12px; font-weight: 700;
+      letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
+      transition: background .15s, transform .1s;
+    }
+    .btn-sim:hover { background: #1d4ed8; }
+    .btn-sim:active { transform: scale(.98); }
+
+    /* ── MAIN ────────────────────────────────────────── */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .main-hd {
+      padding: 14px 24px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--bg-2);
+    }
+    .main-hd .pg-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .main-hd .pg-meta { display: flex; gap: 18px; font-size: 11px; color: var(--text-2); align-items: center; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; margin-right: 5px; }
+
+    .main-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+    .sec-label {
+      font-size: 10px; font-weight: 700; letter-spacing: .12em;
+      color: var(--text-3); text-transform: uppercase; margin-bottom: 10px;
+    }
+
+    /* VaR cards */
+    .cards4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 20px; }
+    .vcard {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px; position: relative; overflow: hidden;
+    }
+    .vcard::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 2px; background: var(--accent);
+    }
+    .vcard.top::before { background: linear-gradient(90deg,var(--accent),var(--red)); }
+    .vm { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); margin-bottom: 8px; }
+    .vp { font-size: 26px; font-weight: 800; letter-spacing: -.03em; line-height: 1; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+    .vb { font-size: 11px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+    .vtag {
+      position: absolute; top: 12px; right: 10px;
+      font-size: 9px; font-weight: 800; color: var(--red); letter-spacing: .06em;
+    }
+
+    /* metrics row */
+    .mrow { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .mcard { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+    .mlbl { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); margin-bottom: 6px; }
+    .mval { font-size: 22px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+    .msub { font-size: 11px; color: var(--text-2); margin-top: 3px; }
+
+    /* semaphore */
+    .sem-row { display: flex; gap: 7px; margin-top: 8px; }
+    .sem-l { width: 22px; height: 22px; border-radius: 50%; opacity: .18; transition: opacity .3s, box-shadow .3s; }
+    .sem-l.on { opacity: 1; }
+    .sl-g { background: var(--green); } .sl-g.on { box-shadow: 0 0 12px rgba(16,185,129,.5); }
+    .sl-y { background: var(--yellow); } .sl-y.on { box-shadow: 0 0 12px rgba(245,158,11,.5); }
+    .sl-r { background: var(--red); }   .sl-r.on { box-shadow: 0 0 12px rgba(239,68,68,.5); }
+    .sem-txt { margin-top: 6px; font-size: 13px; font-weight: 800; letter-spacing: .04em; }
+    .c-g { color: var(--green); } .c-y { color: var(--yellow); } .c-r { color: var(--red); }
+
+    /* comparison table */
+    .tsec {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px; margin-bottom: 20px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th {
+      font-size: 9px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--text-3);
+      padding: 0 0 8px; border-bottom: 1px solid var(--border);
+    }
+    th:not(:first-child) { text-align: right; }
+    td { padding: 8px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+    .td-m { color: var(--text-2); }
+    .td-p { color: var(--text); font-weight: 700; }
+    .td-b { color: var(--text-2); }
+    .td-s { color: var(--text); }
+    .td-d { color: var(--text-2); }
+
+    /* stress */
+    .ssec {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px; margin-bottom: 20px;
+    }
+    .shd {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+    }
+    .srow {
+      display: grid; grid-template-columns: 145px 76px 1fr 76px 88px;
+      align-items: center; gap: 10px; padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .srow:last-child { border-bottom: none; }
+    .srow-hd { font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); }
+    .sn { font-size: 11px; color: var(--text-2); }
+    .sr { font-size: 11px; color: var(--red); font-variant-numeric: tabular-nums; text-align: right; }
+    .sbar-wrap { height: 6px; background: var(--bg-3); border-radius: 3px; overflow: hidden; }
+    .sbar { height: 100%; border-radius: 3px; transition: width .4s; }
+    .sm { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+    .sc {
+      font-size: 9px; font-weight: 800; letter-spacing: .06em; text-align: right;
+      padding: 2px 6px; border-radius: 3px;
+    }
+    .extremo  { background: var(--red-bg);    color: var(--red);    }
+    .severo   { background: var(--yellow-bg); color: var(--yellow); }
+    .moderado { background: var(--green-bg);  color: var(--green);  }
+
+    /* prompt */
+    .psec {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px; margin-bottom: 24px;
+    }
+    .phd {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+    }
+    .ptxt { font-size: 12px; line-height: 1.7; color: var(--text-2); font-style: italic; }
+    .copy-btn {
+      padding: 5px 12px; background: var(--bg-3);
+      border: 1px solid var(--border-2); border-radius: 5px;
+      color: var(--text-2); font-size: 11px; cursor: pointer; transition: all .15s;
+    }
+    .copy-btn:hover { border-color: var(--accent); color: var(--accent-2); }
+    .copy-btn.ok { color: var(--green); border-color: var(--green); }
+
+    /* ── INLINE CHARTS ──────────────────────────────── */
+    .chart-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px; margin-bottom: 20px;
+    }
+    .chart-hd {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 10px;
+    }
+    .chart-hd-title {
+      font-size: 10px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--text-3);
+    }
+    .chart-hd-sub { font-size: 10px; color: var(--text-3); }
+    .chart-legend { display: flex; gap: 14px; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-2); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+    .legend-line { width: 16px; height: 2px; flex-shrink: 0; }
+
+    /* ── STRESS SIMULATOR ───────────────────────────── */
+    .stsim {
+      background: var(--bg-card); border: 1px solid var(--border-2);
+      border-top: 2px solid var(--yellow); border-radius: 10px;
+      padding: 16px; margin-bottom: 20px;
+    }
+    .stsim-top {
+      display: flex; align-items: flex-end; gap: 16px; margin-bottom: 14px; flex-wrap: wrap;
+    }
+    .stsim-slider-wrap { flex: 1; min-width: 200px; }
+    .stsim-lbl {
+      display: flex; justify-content: space-between; margin-bottom: 6px;
+      font-size: 11px; color: var(--text-2);
+    }
+    .stsim-shock-val {
+      font-size: 22px; font-weight: 800; color: var(--red);
+      font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+    }
+    .stsim-presets { display: flex; gap: 5px; flex-wrap: wrap; }
+    .stsim-preset {
+      padding: 4px 9px; background: var(--bg-3);
+      border: 1px solid var(--border-2); border-radius: 5px;
+      color: var(--text-2); font-size: 10px; font-weight: 600;
+      cursor: pointer; transition: all .15s; white-space: nowrap;
+    }
+    .stsim-preset:hover { border-color: var(--yellow); color: var(--yellow); }
+    .stsim-preset.sel { border-color: var(--yellow); color: var(--yellow); background: rgba(245,158,11,.08); }
+    .stsim-body { display: grid; grid-template-columns: 220px 1fr; gap: 14px; align-items: start; }
+    .stsim-cards { display: flex; flex-direction: column; gap: 8px; }
+    .stsim-card {
+      background: var(--bg-3); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px;
+    }
+    .stsim-card-lbl { font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); margin-bottom: 3px; }
+    .stsim-card-val { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+    .stsim-card-sub { font-size: 10px; color: var(--text-2); margin-top: 1px; }
+    .stsim-chart-wrap {
+      background: var(--bg-3); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 4px 4px; overflow: hidden;
+    }
+    .stsim-chart-title {
+      font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--text-3); padding: 0 8px 6px;
+    }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════ SIDEBAR ══════════ -->
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="brand">Modelo de Risco · Ibovespa</div>
+    <div class="title">VaR Analytics</div>
+    <div class="badge">Simulador Executivo</div>
+  </div>
+
+  <div class="sb-body">
+
+    <div class="sec-hd">Posição</div>
+    <div class="ctrl">
+      <div class="ctrl-lbl"><span>Nocional (R$)</span></div>
+      <input type="number" id="nocional" value="10000000" step="1000000" min="100000">
+    </div>
+    <div class="ctrl">
+      <div class="ctrl-lbl"><span>Nível de Confiança</span></div>
+      <div class="toggle-row">
+        <button class="tog-btn active" id="c99" onclick="setConf(0.99)">99%</button>
+        <button class="tog-btn"        id="c95" onclick="setConf(0.95)">95%</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="sec-hd">Volatilidade EWMA</div>
+    <div class="ctrl">
+      <div class="ctrl-lbl"><span>Fator λ</span><span class="ctrl-val" id="lv">0.94</span></div>
+      <input type="range" id="lambda" min="0.80" max="0.99" step="0.01" value="0.94"
+             oninput="document.getElementById('lv').textContent=parseFloat(this.value).toFixed(2);updateAll()">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="sec-hd">Monte Carlo</div>
+    <div class="ctrl">
+      <div class="ctrl-lbl"><span>Simulações</span><span class="ctrl-val" id="nv">1 000</span></div>
+      <input type="range" id="nmc" min="500" max="10000" step="500" value="1000"
+             oninput="document.getElementById('nv').textContent=parseInt(this.value).toLocaleString('pt-BR');updateAll()">
+    </div>
+    <div class="ctrl">
+      <div class="ctrl-lbl"><span>Seed</span></div>
+      <input type="number" id="seed" value="42" min="0" max="99999">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="sec-hd">Backtesting · Basileia II</div>
+    <div class="ctrl">
+      <div class="ctrl-lbl"><span>Zona Verde (máx exceções)</span></div>
+      <input type="number" id="zv" value="4" min="1" max="9">
+    </div>
+    <div class="ctrl">
+      <div class="ctrl-lbl"><span>Zona Vermelha (mín exceções)</span></div>
+      <input type="number" id="zvr" value="10" min="5" max="20">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="sec-hd">Cenários de Stress</div>
+    <div id="schecks"></div>
+
+  </div>
+
+  <div class="sb-foot">
+    <button class="btn-sim" onclick="simulate()">↻ &nbsp;Simular</button>
+  </div>
+</aside>
+
+<!-- ══════════ MAIN ══════════ -->
+<div class="main">
+  <div class="main-hd">
+    <div class="pg-title">Painel de Risco — Value at Risk</div>
+    <div class="pg-meta">
+      <span><span class="dot"></span>519 retornos reais · 2022-01-03 → 2023-12-29</span>
+      <span id="nocMeta">Nocional: R$ 10.000.000</span>
+    </div>
+  </div>
+
+  <div class="main-body">
+
+    <div class="sec-label">VaR 1d por Método</div>
+    <div class="cards4" id="vcards"></div>
+
+    <div class="chart-card">
+      <div class="chart-hd">
+        <span class="chart-hd-title">Distribuição dos Retornos</span>
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-dot" style="background:rgba(59,130,246,.5)"></span>Retorno normal</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#ef4444"></span>Cauda (≤ −VaR Hist)</span>
+          <span class="legend-item"><span class="legend-line" style="background:#3b82f6"></span>N(μ,σ²)</span>
+          <span class="legend-item"><span class="legend-line" style="background:#ef4444"></span>VaR Hist</span>
+          <span class="legend-item"><span class="legend-line" style="background:#22d3ee;border-top:2px dashed #22d3ee;height:0"></span>VaR Param</span>
+        </div>
+      </div>
+      <svg id="histSvg" width="100%" height="185" style="display:block;overflow:visible"></svg>
+    </div>
+
+    <div class="mrow">
+      <div class="mcard">
+        <div class="mlbl">Expected Shortfall 99% (CVaR)</div>
+        <div class="mval" id="esv" style="color:var(--red)">—</div>
+        <div class="msub" id="esb">—</div>
+      </div>
+      <div class="mcard">
+        <div class="mlbl">VaR 10d Regulatório · Basileia</div>
+        <div class="mval" id="v10v" style="color:var(--accent-2)">—</div>
+        <div class="msub" id="v10b">—</div>
+      </div>
+      <div class="mcard" id="btcard">
+        <div class="mlbl">Backtesting · Janela 250 d.u.</div>
+        <div class="sem-row">
+          <div class="sem-l sl-g" id="slg"></div>
+          <div class="sem-l sl-y" id="sly"></div>
+          <div class="sem-l sl-r" id="slr"></div>
+        </div>
+        <div class="sem-txt" id="stxt">—</div>
+        <div class="msub" id="ssub">—</div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-hd">
+        <span class="chart-hd-title">Backtesting — Últimos 250 Dias Úteis</span>
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-dot" style="background:rgba(16,185,129,.4)"></span>Retorno positivo</span>
+          <span class="legend-item"><span class="legend-dot" style="background:rgba(239,68,68,.35)"></span>Retorno negativo</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#ef4444"></span>Exceção</span>
+          <span class="legend-item"><span class="legend-line" style="background:#ef4444;border-top:2px dashed #ef4444;height:0"></span>Threshold VaR</span>
+        </div>
+      </div>
+      <svg id="btSvg" width="100%" height="155" style="display:block;overflow:visible"></svg>
+    </div>
+
+    <div class="sec-label">Tabela Comparativa</div>
+    <div class="tsec">
+      <table>
+        <thead>
+          <tr>
+            <th>Método</th>
+            <th>VaR %</th>
+            <th>VaR BRL</th>
+            <th>ES 99%</th>
+            <th>VaR 10d %</th>
+          </tr>
+        </thead>
+        <tbody id="ctable"></tbody>
+      </table>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-hd">
+        <span class="chart-hd-title">Série Histórica · VaR EWMA Condicional</span>
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-dot" style="background:rgba(59,130,246,.3)"></span>Ret. positivo</span>
+          <span class="legend-item"><span class="legend-dot" style="background:rgba(239,68,68,.3)"></span>Ret. negativo</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#ef4444"></span>Exceção</span>
+          <span class="legend-item"><span class="legend-line" style="background:#f59e0b"></span>VaR EWMA</span>
+        </div>
+      </div>
+      <svg id="ewmaSvg" width="100%" height="195" style="display:block;overflow:visible"></svg>
+    </div>
+
+    <div class="sec-label">Stress Test — Cenários Históricos e Hipotéticos</div>
+    <div class="ssec">
+      <div class="shd">
+        <div></div>
+        <div style="font-size:10px;color:var(--text-3)">múltiplo relativo ao VaR Histórico 1d/99%</div>
+      </div>
+      <div class="srow srow-hd">
+        <span>Cenário</span>
+        <span style="text-align:right">Retorno</span>
+        <span>Impacto relativo</span>
+        <span style="text-align:right">Mult. VaR</span>
+        <span style="text-align:right">Classe</span>
+      </div>
+      <div id="srows"></div>
+    </div>
+
+    <div class="sec-label">Simulador de Stress — Impacto Dinâmico no EWMA</div>
+    <div class="stsim">
+
+      <div class="stsim-top">
+        <div class="stsim-slider-wrap">
+          <div class="stsim-lbl">
+            <span>Choque de Retorno</span>
+            <span class="stsim-shock-val" id="shockDisp">−12.00%</span>
+          </div>
+          <input type="range" id="shockSlider" min="-30" max="-1" step="0.25" value="-12"
+                 oninput="onShockSlide(this.value)">
+        </div>
+        <div class="stsim-presets">
+          <button class="stsim-preset sel" id="ps0" onclick="setShock(-12.07,'ps0')">COVID −12%</button>
+          <button class="stsim-preset"     id="ps1" onclick="setShock(-7.36,'ps1')">Brexit −7%</button>
+          <button class="stsim-preset"     id="ps2" onclick="setShock(-9.92,'ps2')">Lehman −10%</button>
+          <button class="stsim-preset"     id="ps3" onclick="setShock(-5.50,'ps3')">Eleições −6%</button>
+          <button class="stsim-preset"     id="ps4" onclick="setShock(-20.00,'ps4')">Hipotético −20%</button>
+        </div>
+      </div>
+
+      <div class="stsim-body">
+        <div class="stsim-cards">
+          <div class="stsim-card">
+            <div class="stsim-card-lbl">Perda Imediata</div>
+            <div class="stsim-card-val" id="ssPerda" style="color:var(--red)">—</div>
+            <div class="stsim-card-sub" id="ssPerdaPct">—</div>
+          </div>
+          <div class="stsim-card">
+            <div class="stsim-card-lbl">VaR EWMA Estressado (1d/99%)</div>
+            <div class="stsim-card-val" id="ssVarSt" style="color:var(--yellow)">—</div>
+            <div class="stsim-card-sub" id="ssVarStSub">—</div>
+          </div>
+          <div class="stsim-card">
+            <div class="stsim-card-lbl">Dias p/ Recuperação (±1%)</div>
+            <div class="stsim-card-val" id="ssDays" style="color:var(--accent-2)">—</div>
+            <div class="stsim-card-sub" id="ssDaysSub">—</div>
+          </div>
+        </div>
+        <div class="stsim-chart-wrap">
+          <div class="stsim-chart-title">Decaimento do VaR EWMA após o choque — 90 dias (r = 0 após choque)</div>
+          <svg id="ssChart" width="100%" height="170" style="display:block"></svg>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="sec-label">Prompt</div>
+    <div class="psec">
+      <div class="phd">
+        <span style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em">Configuração do Modelo</span>
+        <button class="copy-btn" id="cpybtn" onclick="copyPmt()">Copiar</button>
+      </div>
+      <div class="ptxt" id="ptxt">Calculando…</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════
+const Z99 = 2.3263, Z95 = 1.6449;
+const SCENARIOS = [
+  { name: 'COVID (mar/2020)',    ret: -0.1207 },
+  { name: 'Brexit (jun/2016)',   ret: -0.0736 },
+  { name: 'Lehman (set/2008)',   ret: -0.0992 },
+  { name: 'Eleições BR (2022)', ret: -0.0550 },
+  { name: 'Hipotético Extremo', ret: -0.2000 },
+];
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+const S = {
+  nocional: 10_000_000, conf: 0.99, lambda: 0.94,
+  nmc: 1000, seed: 42, zv: 4, zvr: 10,
+  sa: [true, true, true, true, true],
+};
+
+// ═══════════════════════════════════════════
+// PRNG (Mulberry32) + Box-Muller
+// ═══════════════════════════════════════════
+function mkRng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function rnorm(rng) {
+  let u, v, w;
+  do { u = rng()*2-1; v = rng()*2-1; w = u*u+v*v; } while (w >= 1 || w === 0);
+  return u * Math.sqrt(-2 * Math.log(w) / w);
+}
+
+// ═══════════════════════════════════════════
+// DADOS REAIS — retornos log do Ibovespa
+// Fonte: VaR_Ibovespa_Modelo_Bancario.xlsx · RETORNOS_HIST
+// Período: 2022-01-03 → 2023-12-29 · 519 observações
+// ═══════════════════════════════════════════
+const RETS = [-0.00192483,-0.00118577,0.00857382,-0.00138108,-0.01781826,0.0041378,-0.00305807,-0.00245354,0.00154059,0.00293754,0.01411266,0.00802966,0.00147604,-0.00870985,-0.01202598,0.00310611,0.01588294,0.00064984,-0.00112592,-0.04799997,0.00653131,-0.01729254,-0.00359734,0.00603439,0.03899996,0.01063087,-0.00273759,0.00466919,0.00312855,0.00953791,-0.01320863,0.00696901,-0.01802422,-0.03128931,-0.00713266,-0.01083973,0.01066216,0.00812119,-0.01447891,0.01031835,-0.01187641,-0.00088492,-0.00337681,0.00152306,0.00997363,0.00781093,0.00434863,0.00794934,0.00589188,-0.00737382,-0.0084585,-0.00548958,0.00614191,-0.00285141,0.02817909,-0.00968149,-0.01303653,0.00937165,0.01721216,-0.041,0.00621831,0.01017983,0.01726611,-0.00097829,-0.01692547,-0.00623495,0.01158477,-0.01717416,0.00055234,0.00318888,-0.00363714,0.00883361,0.00711932,0.02800693,0.00758962,-0.00716284,-0.00659153,-0.00982899,0.01157728,0.03499999,-0.00665202,-0.00069309,0.00914167,-0.00853158,-0.00337393,-0.0219454,-0.01283971,-0.00666287,0.00513916,0.0144719,-7.158e-05,0.00328641,0.00216562,0.01316685,0.01087024,0.00343431,-0.01198129,0.01099063,0.00472256,0.01487334,-0.00020892,0.02358718,-0.00415649,0.0192667,0.00153145,-0.0060452,-0.01339135,-0.00166236,0.01722982,0.00994646,0.00841662,-0.02836048,0.0086816,0.00682019,-0.00644911,-0.00737858,0.0001223,0.02084849,-0.01251123,-0.05199998,-0.00498364,0.01649138,-0.00520383,-0.00422104,0.00132335,-0.0147455,0.0027893,-0.01436543,0.01077235,0.00018813,0.02755118,0.00352005,0.01653831,-0.0154892,-0.00131572,0.00402778,0.02109864,-0.02002098,0.01203748,0.00724625,0.01855258,0.00869864,0.00077484,-0.00610982,-0.01482817,0.00249503,-0.00215032,0.02439323,-0.00718226,0.0039947,-0.01867801,-0.00459554,0.00328379,0.01003755,0.01752721,-0.00037982,-0.01325698,0.00564422,0.00635383,0.00604991,-0.00825341,0.01375059,0.00120477,0.00854792,0.01543887,0.00746124,0.00358823,0.02598356,0.00307444,-0.0034016,0.00149359,0.01794319,0.00157458,0.00638253,0.0144988,-0.00600432,-0.02056882,0.0037431,0.00290684,0.04400004,-0.0071461,0.01060304,0.00744079,-0.01178994,0.00636861,-0.00220326,-0.01764629,0.00558541,-0.00039257,-0.00879342,0.00642538,0.00600716,-0.00678043,0.00495422,0.01233075,-0.00840202,0.00472069,0.00018305,0.02734211,-0.02219761,0.00849343,-0.00352495,-0.00105239,0.02296906,4.711e-05,0.02704133,-0.00515575,0.00435613,-0.00574014,-0.00813829,0.00089979,-0.00324083,0.00257987,-0.02511037,0.02417961,-0.00185398,0.02106486,-0.01193533,0.00366041,-0.038,0.03812927,-0.01028672,-0.01779358,-0.00640808,0.00581983,0.00847008,0.0156344,-0.00293414,-0.01907698,-0.00507036,0.01503265,0.00573798,-0.02333325,-0.00027063,0.01692802,0.02566861,0.00689024,0.0038616,-0.01473245,-0.00996891,0.00071299,0.00618839,0.00711222,-0.00558849,-0.01367331,-0.00918339,-0.01373371,0.00787094,-0.02759741,-0.00384933,0.00554855,0.01841415,0.0010056,0.01216538,-0.00463807,-0.00878287,-0.00794274,0.01847802,0.01208064,0.04200002,0.00599877,0.04011324,-0.00023813,0.00759422,0.00384111,-0.00251262,0.02794404,0.01822928,-0.01664375,-0.00464815,0.00529002,0.00954818,-0.01603134,-0.02691673,-0.02272644,-0.00070333,-0.00108841,0.0042926,-0.00908608,-0.01454088,-0.02412656,0.00410027,0.00459067,0.0120659,0.00963958,-0.0021386,0.01634115,-0.00148638,-0.00778004,-0.00609697,-0.00686774,-0.02583881,0.00202592,0.00314859,-0.00419717,-0.00841608,0.00461167,0.02075247,0.00060909,-0.04500003,-0.00594164,-0.00694738,-0.00068708,-0.0150272,-0.0013531,0.0008842,0.02228613,0.01147171,0.01255839,-0.00840538,0.00818907,-0.01352257,0.00389351,0.00517483,-0.00904693,0.02414257,0.00695845,-0.02268277,0.0067843,-0.00473895,0.00016654,0.00573914,0.00483642,-0.02431983,-0.01374982,0.00942152,0.01576442,0.02298784,0.02178805,-0.02451647,0.00938381,-0.02284548,0.01951319,0.00319017,-0.01354403,0.0242688,0.00787764,-0.02254377,0.00367164,0.038,-0.00862369,0.00148557,-0.00543235,0.01663191,-0.01692946,0.00395883,0.02192028,-0.00977354,0.00267775,0.00257401,-0.00812644,0.00792475,0.00131458,-0.01117518,0.02129422,0.00964935,-0.00185528,-0.0074901,-0.00926238,0.0149213,-0.00160774,0.00566328,-0.00206347,0.0075469,-0.00124177,0.00931622,-0.00204855,0.01010505,0.00821861,-0.00124934,-0.01016733,-0.01113145,-0.00873881,-0.01166383,0.01053954,-0.00040922,0.01899119,0.02750196,0.00044068,-0.03099998,-0.01842621,-0.00442741,-0.00075417,-0.01771128,-0.00285593,0.00359333,-0.00536311,-0.00907112,-0.0089551,0.02159018,-0.00176574,-0.00980914,-0.00432476,0.0116021,-0.00806627,0.00593219,0.0088846,0.00913944,0.01694631,-0.00645575,0.01374278,-0.00936421,-0.00460848,0.01450302,0.01001851,0.00017514,-0.01414699,0.00688994,-0.00741449,-0.0109366,-0.00762761,0.00310792,-0.02530239,0.00447914,0.00223691,-0.00686432,0.01259311,0.00748731,-0.00712543,0.03599998,-0.00789018,0.00849179,-0.0180429,-0.0038415,-0.00742256,0.00098855,0.0026835,0.00059145,0.01376818,0.00288678,-0.00362992,-0.01438023,0.00881218,0.00648775,0.01755971,-0.00881948,0.00046703,-0.00055434,-0.00090132,0.00027466,-0.02042449,0.01004984,0.00798844,0.0137157,0.0271449,-0.00367759,-0.00028373,0.00026742,0.02345623,-0.02062463,0.00597921,-0.01749999,-0.03082883,-0.02409996,-0.0164312,0.01297832,-0.01027035,-0.00257949,-0.01381218,-0.02900003,0.00748137,-0.01307354,0.01596181,-0.01176723,-0.00902791,0.00162293,0.00044655,0.01724629,0.00159487,-0.01434398,-0.00657403,-0.00672344,0.00885054,0.00475552,-0.0012827,0.01058528,-0.00619196,-0.00148479,0.00231913,0.01848815,-0.00103237,-0.0040596,-0.01240004,0.00838261,-0.00690175,0.00427421,-0.02266933,0.01266823,-0.01583323,0.03299998,-0.00917814,0.01285295,-0.01586362,-0.00080343,0.0010411,-0.0118327,0.01626518,0.01813533,-0.0235094,-0.01723789,0.00984878,-0.01548628,-0.00451363,0.00170466,0.00845219,-0.00252901,0.00129263,-0.00917076,0.01565833,-0.00579374,0.00422677,-0.00598963,0.00142588,-0.00186794,-0.00179956,-0.01201535,0.00970696,0.0171185,0.0030678];
+
+// ═══════════════════════════════════════════
+// MATH UTILS
+// ═══════════════════════════════════════════
+function qtile(sorted, p) {            // p in [0,1]
+  const idx = p * (sorted.length - 1);
+  const lo = Math.floor(idx), hi = Math.ceil(idx);
+  return lo === hi ? sorted[lo] : sorted[lo] + (idx - lo) * (sorted[hi] - sorted[lo]);
+}
+const mean = a => a.reduce((s,v) => s+v, 0) / a.length;
+const vari = a => { const m = mean(a); return a.reduce((s,v) => s+(v-m)**2, 0) / (a.length-1); };
+const fmtP = v => (v*100).toFixed(4) + '%';
+const fmtB = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+// ═══════════════════════════════════════════
+// VaR METHODS
+// ═══════════════════════════════════════════
+function varHist(ret, conf, noc) {
+  const s = [...ret].sort((a,b) => a-b);
+  const a = 1-conf;
+  const vp = Math.abs(qtile(s, a));
+  const th = qtile(s, a);
+  const tail = ret.filter(r => r < th);
+  const ep = tail.length ? Math.abs(mean(tail)) : vp;
+  return { vp, vb: vp*noc, ep, eb: ep*noc, v10p: vp*Math.sqrt(10), v10b: vp*Math.sqrt(10)*noc };
+}
+
+function varParam(ret, conf, noc) {
+  const sig = Math.sqrt(vari(ret));
+  const z = conf >= .99 ? Z99 : Z95;
+  const vp = z * sig;
+  return { vp, vb: vp*noc, ep: null, eb: null, v10p: vp*Math.sqrt(10), v10b: vp*Math.sqrt(10)*noc };
+}
+
+function varEwma(ret, lam, conf, noc) {
+  // Replicação exata de ewma_volatility() em var_ibovespa.py:
+  // σ²ₜ = λ·σ²ₜ₋₁ + (1−λ)·r²ₜ₋₁  — inovação usa o retorno ANTERIOR (t-1)
+  // σ²₀ = 0 (bootstrap RiskMetrics, EWMA_VOL!D3 = 0)
+  const z = conf >= .99 ? Z99 : Z95;
+  let s2 = 0.0;
+  for (let i = 0; i < ret.length - 1; i++) s2 = lam*s2 + (1-lam)*ret[i]*ret[i];
+  const vp = z * Math.sqrt(s2);
+  return { vp, vb: vp*noc, ep: null, eb: null, v10p: vp*Math.sqrt(10), v10b: vp*Math.sqrt(10)*noc, s2 };
+}
+
+function varMC(ret, conf, noc, n, seed) {
+  const mu = mean(ret), sig = Math.sqrt(vari(ret));
+  const rng = mkRng(seed >>> 0);
+  const sim = Array.from({length: n}, () => mu + sig * rnorm(rng));
+  const s = [...sim].sort((a,b) => a-b);
+  const a = 1-conf;
+  const vp = Math.abs(qtile(s, a));
+  const th = qtile(s, a);
+  const tail = sim.filter(r => r < th);
+  const ep = tail.length ? Math.abs(mean(tail)) : vp;
+  return { vp, vb: vp*noc, ep, eb: ep*noc, v10p: vp*Math.sqrt(10), v10b: vp*Math.sqrt(10)*noc };
+}
+
+function backtest(ret, vp, zv, zvr) {
+  const win = ret.slice(-250);
+  const exc = win.filter(r => Math.abs(r) > vp).length;
+  const sem = exc <= zv ? 'VERDE' : exc < zvr ? 'AMARELO' : 'VERMELHO';
+  return { exc, taxa: exc/win.length, sem };
+}
+
+function stress(noc, vb, sa) {
+  return SCENARIOS.map((sc, i) => {
+    if (!sa[i]) return null;
+    const perda = Math.abs(sc.ret * noc);
+    const mult = perda / vb;
+    const cls = mult >= 3 ? 'EXTREMO' : mult >= 1.5 ? 'SEVERO' : 'MODERADO';
+    return { ...sc, perda, mult, cls };
+  }).filter(Boolean);
+}
+
+// ═══════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════
+function renderCards(h, p, e, m) {
+  const vals = [h.vp, p.vp, e.vp, m.vp];
+  const mx = Math.max(...vals);
+  const names = ['Histórico', 'Paramétrico', `EWMA λ=${S.lambda.toFixed(2)}`, 'Monte Carlo'];
+  const data = [h, p, e, m];
+  document.getElementById('vcards').innerHTML = names.map((nm, i) => {
+    const isTop = Math.abs(data[i].vp - mx) < 1e-12;
+    return `<div class="vcard${isTop?' top':''}">
+      <div class="vm">${nm}</div>
+      <div class="vp">${fmtP(data[i].vp)}</div>
+      <div class="vb">${fmtB(data[i].vb)}</div>
+      ${isTop ? '<div class="vtag">▲ MÁX</div>' : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderMetrics(h, e, bt) {
+  document.getElementById('esv').textContent = fmtP(h.ep);
+  document.getElementById('esb').textContent = fmtB(h.eb);
+  document.getElementById('v10v').textContent = fmtP(e.v10p);
+  document.getElementById('v10b').textContent = fmtB(e.v10b);
+  const cm = { VERDE:'g', AMARELO:'y', VERMELHO:'r' }[bt.sem];
+  document.getElementById('slg').className = `sem-l sl-g${cm==='g'?' on':''}`;
+  document.getElementById('sly').className = `sem-l sl-y${cm==='y'?' on':''}`;
+  document.getElementById('slr').className = `sem-l sl-r${cm==='r'?' on':''}`;
+  document.getElementById('stxt').className = `sem-txt c-${cm}`;
+  document.getElementById('stxt').textContent = bt.sem;
+  document.getElementById('ssub').textContent = `${bt.exc} exceções · ${(bt.taxa*100).toFixed(2)}% (esperado ~1%)`;
+}
+
+function renderTable(h, p, e, m) {
+  const rows = [
+    ['Histórico', h],
+    ['Paramétrico', p],
+    [`EWMA λ=${S.lambda.toFixed(2)}`, e],
+    ['Monte Carlo', m],
+  ];
+  document.getElementById('ctable').innerHTML = rows.map(([nm, d]) =>
+    `<tr>
+      <td class="td-m">${nm}</td>
+      <td class="td-p">${fmtP(d.vp)}</td>
+      <td class="td-b">${fmtB(d.vb)}</td>
+      <td class="td-s">${d.ep != null ? fmtP(d.ep) : '—'}</td>
+      <td class="td-d">${fmtP(d.v10p)}</td>
+    </tr>`).join('');
+}
+
+function renderStress(res) {
+  if (!res.length) {
+    document.getElementById('srows').innerHTML =
+      '<div style="padding:16px 0;text-align:center;color:var(--text-3);font-size:12px">Nenhum cenário ativo</div>';
+    return;
+  }
+  const maxM = Math.max(...res.map(r => r.mult));
+  const colors = { EXTREMO:'var(--red)', SEVERO:'var(--yellow)', MODERADO:'var(--green)' };
+  document.getElementById('srows').innerHTML = res.map(r => {
+    const bw = (r.mult / (maxM * 1.1) * 100).toFixed(1);
+    const col = colors[r.cls];
+    return `<div class="srow">
+      <span class="sn">${r.name}</span>
+      <span class="sr">${(r.ret*100).toFixed(2)}%</span>
+      <div class="sbar-wrap"><div class="sbar" style="width:${bw}%;background:${col}"></div></div>
+      <span class="sm" style="color:${col}">${r.mult.toFixed(2)}x</span>
+      <span class="sc ${r.cls.toLowerCase()}">${r.cls}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderPrompt(h, p, e, m, bt, st) {
+  const conf_s = (S.conf*100).toFixed(0);
+  const noc_s = S.nocional.toLocaleString('pt-BR');
+  const parts = [
+    `Analise o modelo VaR do Ibovespa com nocional de R$${noc_s} a ${conf_s}% de confiança.`,
+    `VaR 1d: Histórico ${fmtP(h.vp)}, Paramétrico ${fmtP(p.vp)}, EWMA(λ=${S.lambda.toFixed(2)}) ${fmtP(e.vp)}, Monte Carlo(n=${S.nmc.toLocaleString('pt-BR')}) ${fmtP(m.vp)}.`,
+    `Expected Shortfall 99%: ${fmtP(h.ep)} (${fmtB(h.eb)}).`,
+    `VaR regulatório 10d (Basileia): ${fmtP(e.v10p)} — ${fmtB(e.v10b)}.`,
+    `Backtesting Basileia II: ${bt.exc} exceções na janela de 250 dias (semáforo ${bt.sem}, taxa ${(bt.taxa*100).toFixed(2)}%).`,
+  ];
+  if (st.length) {
+    const mx = st.reduce((a, b) => a.mult > b.mult ? a : b);
+    parts.push(`Pior cenário de stress: ${mx.name} (${(mx.ret*100).toFixed(2)}%), perda de ${fmtB(mx.perda)} — ${mx.mult.toFixed(2)}x o VaR Histórico (${mx.cls}).`);
+  }
+  document.getElementById('ptxt').textContent = parts.join(' ');
+}
+
+function renderSchecks() {
+  document.getElementById('schecks').innerHTML = SCENARIOS.map((sc, i) =>
+    `<div class="stress-item" onclick="toggleS(${i})">
+      <div class="schk${S.sa[i]?' on':''}"></div>
+      <span>${sc.name}</span>
+      <span class="sret">${(sc.ret*100).toFixed(2)}%</span>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════
+// COMPUTE + UPDATE
+// ═══════════════════════════════════════════
+function updateAll() {
+  const h = varHist(RETS, S.conf, S.nocional);
+  const p = varParam(RETS, S.conf, S.nocional);
+  const e = varEwma(RETS, S.lambda, S.conf, S.nocional);
+  const m = varMC(RETS, S.conf, S.nocional, S.nmc, S.seed);
+  const bt = backtest(RETS, h.vp, S.zv, S.zvr);
+  const st = stress(S.nocional, h.vb, S.sa);
+
+  _s2_ewma = e.s2;
+  const ewmaSig = ewmaFullSeries(RETS, S.lambda, S.conf);
+
+  renderCards(h, p, e, m);
+  renderHistChart(RETS, h.vp, p.vp);
+  renderMetrics(h, e, bt);
+  renderBtChart(RETS, h.vp);
+  renderTable(h, p, e, m);
+  renderEwmaChart(RETS, ewmaSig, h.vp);
+  renderStress(st);
+  renderPrompt(h, p, e, m, bt, st);
+  renderStressSim();
+
+  document.getElementById('nocMeta').textContent = 'Nocional: ' + fmtB(S.nocional);
+}
+
+function simulate() {
+  S.nocional = parseFloat(document.getElementById('nocional').value) || 10_000_000;
+  S.lambda   = parseFloat(document.getElementById('lambda').value);
+  S.nmc      = parseInt(document.getElementById('nmc').value);
+  S.seed     = parseInt(document.getElementById('seed').value) || 0;
+  S.zv       = parseInt(document.getElementById('zv').value);
+  S.zvr      = parseInt(document.getElementById('zvr').value);
+  updateAll();
+}
+
+function setConf(v) {
+  S.conf = v;
+  document.getElementById('c99').classList.toggle('active', v >= .99);
+  document.getElementById('c95').classList.toggle('active', v < .99);
+  updateAll();
+}
+
+function toggleS(i) {
+  S.sa[i] = !S.sa[i];
+  renderSchecks();
+  updateAll();
+}
+
+function copyPmt() {
+  navigator.clipboard.writeText(document.getElementById('ptxt').textContent).then(() => {
+    const b = document.getElementById('cpybtn');
+    b.textContent = '✓ Copiado'; b.classList.add('ok');
+    setTimeout(() => { b.textContent = 'Copiar'; b.classList.remove('ok'); }, 2000);
+  });
+}
+
+// ═══════════════════════════════════════════
+// CHART HELPERS
+// ═══════════════════════════════════════════
+function svgW(el) { return Math.max(200, el.clientWidth || el.parentElement?.clientWidth || 600); }
+
+// ═══════════════════════════════════════════
+// CHART 1: HISTOGRAM
+// ═══════════════════════════════════════════
+function renderHistChart(ret, vp_h, vp_p) {
+  const el = document.getElementById('histSvg');
+  if (!el) return;
+  const W = svgW(el), H = 185;
+  const P = { t: 10, r: 20, b: 30, l: 44 };
+  const cW = W - P.l - P.r, cH = H - P.t - P.b;
+
+  const CLIP = 0.06, N_BINS = 40;
+  const bw = 2 * CLIP / N_BINS;
+  const bins = Array(N_BINS).fill(0);
+  let nClip = 0;
+  for (const r of ret) {
+    if (r <= -CLIP || r >= CLIP) { nClip++; continue; }
+    bins[Math.min(N_BINS - 1, Math.floor((r + CLIP) / bw))]++;
+  }
+  const maxB = Math.max(...bins);
+  const xS = r  => P.l + ((r + CLIP) / (2 * CLIP)) * cW;
+  const yS = v  => P.t + cH - (v / maxB) * cH;
+  const bpx = cW / N_BINS;
+
+  const bars = bins.map((cnt, i) => {
+    const mid = -CLIP + (i + .5) * bw;
+    const col = mid < -vp_h ? 'rgba(239,68,68,.65)' : 'rgba(59,130,246,.32)';
+    const bh  = Math.max(1, cnt / maxB * cH);
+    return `<rect x="${(xS(-CLIP + i*bw) + .4).toFixed(1)}" y="${(P.t+cH-bh).toFixed(1)}" width="${(bpx-.8).toFixed(1)}" height="${bh.toFixed(1)}" fill="${col}"/>`;
+  }).join('');
+
+  const mu = mean(ret), sig = Math.sqrt(vari(ret));
+  const scale = ret.length * bw;
+  const nPts = Array.from({length: 201}, (_, i) => {
+    const r = -CLIP + (i / 200) * 2 * CLIP;
+    const d = scale * Math.exp(-.5 * ((r - mu) / sig) ** 2) / (sig * Math.sqrt(2 * Math.PI));
+    return d <= maxB * 1.12 ? `${xS(r).toFixed(1)},${yS(d).toFixed(1)}` : null;
+  }).filter(Boolean).join(' ');
+
+  const ticks = [-5,-4,-3,-2,-1,0,1,2,3,4,5].map(v => {
+    const r = v / 100;
+    if (Math.abs(r) > CLIP) return '';
+    const x = xS(r).toFixed(1);
+    return `<line x1="${x}" y1="${P.t}" x2="${x}" y2="${P.t+cH}" stroke="#162034" stroke-width="1"/>
+            <text x="${x}" y="${P.t+cH+14}" text-anchor="middle" fill="#3a4d65" font-size="9">${v}%</text>`;
+  }).join('');
+
+  const xH = xS(-vp_h).toFixed(1), xPm = xS(-vp_p).toFixed(1);
+  el.innerHTML = `
+    <line x1="${P.l}" y1="${P.t}" x2="${P.l}" y2="${P.t+cH}" stroke="#162034" stroke-width="1"/>
+    <line x1="${P.l}" y1="${P.t+cH}" x2="${P.l+cW}" y2="${P.t+cH}" stroke="#1e2d45" stroke-width="1"/>
+    ${ticks}${bars}
+    <polyline points="${nPts}" fill="none" stroke="#3b82f6" stroke-width="1.5" opacity=".85"/>
+    <line x1="${xH}" y1="${P.t}" x2="${xH}" y2="${P.t+cH}" stroke="#ef4444" stroke-width="1.5"/>
+    <text x="${(parseFloat(xH)-3).toFixed(0)}" y="${P.t+10}" text-anchor="end" fill="#ef4444" font-size="8.5" font-weight="700">Hist ${(vp_h*100).toFixed(2)}%</text>
+    <line x1="${xPm}" y1="${P.t}" x2="${xPm}" y2="${P.t+cH}" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <text x="${(parseFloat(xPm)-3).toFixed(0)}" y="${P.t+21}" text-anchor="end" fill="#22d3ee" font-size="8.5" font-weight="700">Param ${(vp_p*100).toFixed(2)}%</text>
+    ${nClip > 0 ? `<text x="${P.l+cW}" y="${P.t+cH-5}" text-anchor="end" fill="#3a4d65" font-size="8">${nClip} obs. fora</text>` : ''}`;
+}
+
+// ═══════════════════════════════════════════
+// CHART 2: EWMA SERIES
+// ═══════════════════════════════════════════
+function ewmaFullSeries(ret, lam, conf) {
+  const z = conf >= .99 ? Z99 : Z95;
+  const series = new Array(ret.length).fill(0);
+  let s2 = 0.0;
+  for (let t = 1; t < ret.length; t++) {
+    s2 = lam * s2 + (1 - lam) * ret[t-1] * ret[t-1];
+    series[t] = z * Math.sqrt(s2);
+  }
+  return series;
+}
+
+function renderEwmaChart(ret, ewmaSig, vp_h) {
+  const el = document.getElementById('ewmaSvg');
+  if (!el) return;
+  const W = svgW(el), H = 195;
+  const P = { t: 10, r: 16, b: 28, l: 48 };
+  const cW = W - P.l - P.r, cH = H - P.t - P.b;
+  const n = ret.length;
+
+  const maxAbs = Math.max(Math.max(...ret.map(Math.abs)), Math.max(...ewmaSig)) * 1.12;
+  const xS = i => P.l + (i / (n - 1)) * cW;
+  const yS = v => P.t + cH / 2 - (v / maxAbs) * (cH / 2);
+  const bw  = Math.max(1, cW / n - .3);
+
+  const bars = ret.map((r, i) => {
+    const exc = Math.abs(r) > vp_h;
+    const col = exc ? 'rgba(239,68,68,.85)' : r >= 0 ? 'rgba(59,130,246,.28)' : 'rgba(239,68,68,.22)';
+    const y0  = parseFloat(yS(0).toFixed(1));
+    const yv  = parseFloat(yS(r).toFixed(1));
+    const top = Math.min(y0, yv).toFixed(1);
+    const bh  = Math.max(1.5, Math.abs(y0 - yv)).toFixed(1);
+    return `<rect x="${(xS(i) - bw/2).toFixed(1)}" y="${top}" width="${bw.toFixed(1)}" height="${bh}" fill="${col}"/>`;
+  }).join('');
+
+  const varPts  = ewmaSig.map((v, i) => `${xS(i).toFixed(1)},${yS(v).toFixed(1)}`).join(' ');
+  const varNPts = ewmaSig.map((v, i) => `${xS(i).toFixed(1)},${yS(-v).toFixed(1)}`).join(' ');
+
+  const yTicks = [-4,-2,0,2,4].map(v => {
+    const r = v / 100;
+    if (Math.abs(r) > maxAbs * 1.05) return '';
+    return `<line x1="${P.l}" y1="${yS(r).toFixed(1)}" x2="${P.l+cW}" y2="${yS(r).toFixed(1)}" stroke="#162034" stroke-width="1"/>
+            <text x="${P.l-5}" y="${(parseFloat(yS(r).toFixed(1))+3.5).toFixed(1)}" text-anchor="end" fill="#3a4d65" font-size="9">${v}%</text>`;
+  }).join('');
+
+  const xTicks = [0,100,200,300,400,500].filter(d => d < n).map(d =>
+    `<line x1="${xS(d).toFixed(1)}" y1="${P.t}" x2="${xS(d).toFixed(1)}" y2="${P.t+cH}" stroke="#162034" stroke-width="1"/>
+     <text x="${xS(d).toFixed(1)}" y="${P.t+cH+14}" text-anchor="middle" fill="#3a4d65" font-size="9">d${d+1}</text>`
+  ).join('');
+
+  const excDots = ret.map((r, i) =>
+    Math.abs(r) > vp_h
+      ? `<circle cx="${xS(i).toFixed(1)}" cy="${yS(r).toFixed(1)}" r="3" fill="#ef4444" opacity=".9"/>`
+      : ''
+  ).join('');
+
+  el.innerHTML = `
+    ${yTicks}${xTicks}${bars}
+    <polyline points="${varPts}"  fill="none" stroke="#f59e0b" stroke-width="1.5" opacity=".95"/>
+    <polyline points="${varNPts}" fill="none" stroke="#f59e0b" stroke-width="1"   stroke-dasharray="3 2" opacity=".55"/>
+    <line x1="${P.l}" y1="${yS(0).toFixed(1)}" x2="${P.l+cW}" y2="${yS(0).toFixed(1)}" stroke="#1e2d45" stroke-width="1"/>
+    ${excDots}`;
+}
+
+// ═══════════════════════════════════════════
+// CHART 3: BACKTESTING TIMELINE
+// ═══════════════════════════════════════════
+function renderBtChart(ret, vp_h) {
+  const el = document.getElementById('btSvg');
+  if (!el) return;
+  const win = ret.slice(-250);
+  const W = svgW(el), H = 155;
+  const P = { t: 8, r: 16, b: 26, l: 44 };
+  const cW = W - P.l - P.r, cH = H - P.t - P.b;
+  const n = win.length;
+
+  const maxAbs = Math.max(Math.max(...win.map(Math.abs)), vp_h) * 1.15;
+  const xS = i => P.l + (i / (n - 1)) * cW;
+  const yS = v => P.t + cH / 2 - (v / maxAbs) * (cH / 2);
+  const bw  = Math.max(1.5, cW / n - .4);
+
+  const bars = win.map((r, i) => {
+    const exc = Math.abs(r) > vp_h;
+    const col = exc ? '#ef4444' : r >= 0 ? 'rgba(16,185,129,.32)' : 'rgba(239,68,68,.25)';
+    const y0  = parseFloat(yS(0).toFixed(1));
+    const yv  = parseFloat(yS(r).toFixed(1));
+    const top = Math.min(y0, yv).toFixed(1);
+    const bh  = Math.max(1.5, Math.abs(y0 - yv)).toFixed(1);
+    return `<rect x="${(xS(i) - bw/2).toFixed(1)}" y="${top}" width="${bw.toFixed(1)}" height="${bh}" fill="${col}"/>`;
+  }).join('');
+
+  const yVP = yS(vp_h).toFixed(1), yVN = yS(-vp_h).toFixed(1);
+
+  const yTicks = [-3,-2,-1,0,1,2,3].map(v => {
+    const r = v / 100;
+    if (Math.abs(r) > maxAbs * 1.05) return '';
+    return `<line x1="${P.l}" y1="${yS(r).toFixed(1)}" x2="${P.l+cW}" y2="${yS(r).toFixed(1)}" stroke="#162034" stroke-width="1"/>
+            <text x="${P.l-5}" y="${(parseFloat(yS(r).toFixed(1))+3.5).toFixed(1)}" text-anchor="end" fill="#3a4d65" font-size="9">${v}%</text>`;
+  }).join('');
+
+  const xTicks = [0,50,100,150,200,249].map(d =>
+    `<line x1="${xS(d).toFixed(1)}" y1="${P.t}" x2="${xS(d).toFixed(1)}" y2="${P.t+cH}" stroke="#162034" stroke-width="1"/>
+     <text x="${xS(d).toFixed(1)}" y="${P.t+cH+14}" text-anchor="middle" fill="#3a4d65" font-size="9">d${d+1}</text>`
+  ).join('');
+
+  const excDots = win.map((r, i) =>
+    Math.abs(r) > vp_h
+      ? `<circle cx="${xS(i).toFixed(1)}" cy="${yS(r).toFixed(1)}" r="3.5" fill="#ef4444" stroke="#06091a" stroke-width="1"/>`
+      : ''
+  ).join('');
+
+  const excN = win.filter(r => Math.abs(r) > vp_h).length;
+  el.innerHTML = `
+    ${yTicks}${xTicks}${bars}
+    <line x1="${P.l}" y1="${yVP}" x2="${P.l+cW}" y2="${yVP}" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="5 3" opacity=".7"/>
+    <line x1="${P.l}" y1="${yVN}" x2="${P.l+cW}" y2="${yVN}" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="5 3" opacity=".7"/>
+    <line x1="${P.l}" y1="${yS(0).toFixed(1)}" x2="${P.l+cW}" y2="${yS(0).toFixed(1)}" stroke="#1e2d45" stroke-width="1"/>
+    ${excDots}
+    <text x="${P.l+cW-4}" y="${P.t+11}" text-anchor="end" fill="#ef4444" font-size="9" font-weight="700">${excN} exceção${excN!==1?'ões':''} · threshold ${(vp_h*100).toFixed(2)}%</text>`;
+}
+
+// ═══════════════════════════════════════════
+// STRESS SIMULATOR
+// ═══════════════════════════════════════════
+let _s2_ewma = 0;   // exposto por varEwma para uso no stress sim
+let _shock = -0.12; // choque atual em decimal
+
+function stressPath(s2_cur, r_shock, lam, conf, days = 90) {
+  const z = conf >= .99 ? Z99 : Z95;
+  const s2_sh = lam * s2_cur + (1 - lam) * r_shock * r_shock;
+  const path = [];
+  let s2 = s2_sh;
+  for (let d = 0; d <= days; d++) {
+    path.push(z * Math.sqrt(s2));
+    s2 = lam * s2; // retorno = 0 após o choque
+  }
+  return { path, vp_sh: path[0] };
+}
+
+function recoveryDay(path, vp_cur, tol = 0.01) {
+  for (let d = 0; d < path.length; d++) {
+    if (path[d] <= vp_cur * (1 + tol)) return d;
+  }
+  return path.length - 1; // não recuperou dentro da janela
+}
+
+function renderStressSim() {
+  const z   = S.conf >= .99 ? Z99 : Z95;
+  const vp_cur = z * Math.sqrt(_s2_ewma);
+  const { path, vp_sh } = stressPath(_s2_ewma, _shock, S.lambda, S.conf);
+  const rd   = recoveryDay(path, vp_cur);
+  const perda = Math.abs(_shock) * S.nocional;
+  const mult  = vp_cur > 0 ? perda / (vp_cur * S.nocional) : 0;
+
+  // cards
+  document.getElementById('ssPerda').textContent   = fmtB(perda);
+  document.getElementById('ssPerdaPct').textContent = `${(_shock*100).toFixed(2)}% do nocional · ${mult.toFixed(2)}x o VaR EWMA atual`;
+  document.getElementById('ssVarSt').textContent    = fmtP(vp_sh);
+  document.getElementById('ssVarStSub').textContent =
+    `atual: ${fmtP(vp_cur)} · aumento de ${vp_cur>0?((vp_sh/vp_cur-1)*100).toFixed(1):'—'}%`;
+  document.getElementById('ssDays').textContent     = rd < 90 ? `${rd} dias` : `> 90 dias`;
+  document.getElementById('ssDaysSub').textContent  =
+    rd < 90 ? `VaR EWMA retorna a ±1% do nível atual em ${rd} dias úteis`
+            : 'Recuperação além de 90 dias úteis';
+
+  // chart
+  drawRecoveryChart(path, vp_cur, rd);
+}
+
+function drawRecoveryChart(path, vp_cur, rd) {
+  const svg = document.getElementById('ssChart');
+  const W = svg.clientWidth || 560;
+  const H = 170;
+  const P = { t: 8, r: 16, b: 28, l: 52 };
+  const cW = W - P.l - P.r;
+  const cH = H - P.t - P.b;
+  const days = path.length - 1;
+
+  const maxV = path[0] * 1.06;
+  const minV = Math.min(vp_cur * 0.94, path[days] * 0.94);
+  const xS = d => P.l + (d / days) * cW;
+  const yS = v => P.t + cH - Math.max(0, Math.min(1, (v - minV) / (maxV - minV))) * cH;
+
+  // area path
+  const linePts = path.map((v, d) => `${xS(d).toFixed(1)},${yS(v).toFixed(1)}`).join(' L');
+  const areaD = `M ${xS(0).toFixed(1)},${yS(path[0]).toFixed(1)} L ${linePts} L ${xS(days).toFixed(1)},${yS(minV).toFixed(1)} L ${xS(0).toFixed(1)},${yS(minV).toFixed(1)} Z`;
+
+  // x-axis ticks
+  const xTicks = [0, 15, 30, 45, 60, 75, 90].map(d =>
+    `<line x1="${xS(d).toFixed(1)}" y1="${P.t}" x2="${xS(d).toFixed(1)}" y2="${P.t+cH}" stroke="#162034" stroke-width="1"/>
+     <text x="${xS(d).toFixed(1)}" y="${P.t+cH+14}" text-anchor="middle" fill="#3a4d65" font-size="9">${d}d</text>`
+  ).join('');
+
+  // y-axis ticks (3 levels)
+  const yVals = [vp_cur, (path[0]+vp_cur)/2, path[0]];
+  const yTicks = yVals.map(v =>
+    `<line x1="${P.l}" y1="${yS(v).toFixed(1)}" x2="${P.l+cW}" y2="${yS(v).toFixed(1)}" stroke="#162034" stroke-width="1" stroke-dasharray="3 3"/>
+     <text x="${(P.l-6).toFixed(0)}" y="${(yS(v)+3.5).toFixed(1)}" text-anchor="end" fill="#3a4d65" font-size="9">${(v*100).toFixed(2)}%</text>`
+  ).join('');
+
+  // recovery marker
+  const rdMark = rd < 90 ? `
+    <line x1="${xS(rd).toFixed(1)}" y1="${P.t}" x2="${xS(rd).toFixed(1)}" y2="${P.t+cH}" stroke="#3b82f6" stroke-width="1" stroke-dasharray="4 3" opacity=".6"/>
+    <circle cx="${xS(rd).toFixed(1)}" cy="${yS(path[rd]).toFixed(1)}" r="4" fill="#3b82f6"/>
+    <text x="${(xS(rd)+6).toFixed(1)}" y="${(yS(path[rd])-5).toFixed(1)}" fill="#3b82f6" font-size="9" font-weight="bold">${rd}d</text>` : '';
+
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#ef4444" stop-opacity=".25"/>
+        <stop offset="100%" stop-color="#ef4444" stop-opacity=".02"/>
+      </linearGradient>
+    </defs>
+    ${xTicks}${yTicks}
+    <path d="${areaD}" fill="url(#areaGrad)"/>
+    <polyline points="${path.map((v,d)=>`${xS(d).toFixed(1)},${yS(v).toFixed(1)}`).join(' ')}"
+      fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linejoin="round"/>
+    <line x1="${P.l}" y1="${yS(vp_cur).toFixed(1)}" x2="${P.l+cW}" y2="${yS(vp_cur).toFixed(1)}"
+      stroke="#10b981" stroke-width="1.5" stroke-dasharray="6 3"/>
+    <circle cx="${xS(0).toFixed(1)}" cy="${yS(path[0]).toFixed(1)}" r="4" fill="#ef4444"/>
+    <text x="${(xS(0)+7).toFixed(1)}" y="${(yS(path[0])-5).toFixed(1)}" fill="#ef4444" font-size="9" font-weight="bold">VaR estressado</text>
+    <text x="${(P.l+cW-4).toFixed(0)}" y="${(yS(vp_cur)-5).toFixed(1)}" text-anchor="end" fill="#10b981" font-size="9">VaR atual</text>
+    ${rdMark}`;
+}
+
+function onShockSlide(val) {
+  _shock = parseFloat(val) / 100;
+  document.getElementById('shockDisp').textContent = `${parseFloat(val).toFixed(2)}%`;
+  // deselect presets
+  ['ps0','ps1','ps2','ps3','ps4'].forEach(id => document.getElementById(id).classList.remove('sel'));
+  renderStressSim();
+}
+
+function setShock(pct, btnId) {
+  _shock = pct / 100;
+  document.getElementById('shockSlider').value = pct;
+  document.getElementById('shockDisp').textContent = `${pct.toFixed(2)}%`;
+  ['ps0','ps1','ps2','ps3','ps4'].forEach(id => document.getElementById(id).classList.remove('sel'));
+  if (btnId) document.getElementById(btnId).classList.add('sel');
+  renderStressSim();
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+renderSchecks();
+updateAll();
+</script>
+</body>
+</html>

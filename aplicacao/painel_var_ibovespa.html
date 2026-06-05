@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>VaR Ibovespa — Painel</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d0d0d;color:#c8c8c8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── Layout ── */
+#app{display:flex;flex:1;overflow:hidden;min-height:0}
+#sidebar{width:226px;min-width:226px;background:#111;border-right:1px solid #1e1e1e;padding:9px;overflow:hidden;display:flex;flex-direction:column;gap:9px}
+#content{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+
+/* ── Sidebar ── */
+.st{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#363636;padding-bottom:3px;border-bottom:1px solid #1a1a1a;margin-bottom:2px}
+.pg{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+.pb{background:#181818;border:1px solid #252525;color:#666;border-radius:4px;padding:5px 3px;cursor:pointer;font-size:9.5px;text-align:center;transition:all .15s;font-family:inherit;line-height:1.3}
+.pb:hover{background:#222;border-color:#444;color:#ccc}
+.pb.on{background:#1a1832;border-color:#5a53c0;color:#a09aff}
+.cg{display:flex;flex-direction:column;gap:4px}
+.cl{display:flex;justify-content:space-between;align-items:center;color:#666;font-size:10px}
+.cl strong{color:#aaa;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:#7c6fff;cursor:pointer;height:3px}
+.rg{display:flex;gap:3px}
+.rb{flex:1;background:#181818;border:1px solid #252525;color:#555;border-radius:3px;padding:3px 2px;cursor:pointer;font-size:9.5px;text-align:center;font-family:inherit;transition:all .1s}
+.rb:hover{background:#1e1e1e;color:#aaa}
+.rb.on{background:#1a1832;border-color:#5a53c0;color:#a09aff}
+.hint{font-size:8.5px;color:#2e2e2e;line-height:1.35}
+
+/* ── Tabs ── */
+#tab-bar{display:flex;gap:1px;padding:8px 9px 0;flex-shrink:0}
+.tab-btn{background:#161616;border:1px solid #1e1e1e;border-bottom:none;color:#555;padding:6px 16px;cursor:pointer;font-size:10.5px;font-family:inherit;border-radius:5px 5px 0 0;transition:all .15s}
+.tab-btn:hover{color:#aaa;background:#1a1a1a}
+.tab-btn.on{background:#111;border-color:#2a2a2a;color:#c8c8c8}
+.tab-panel{flex:1;display:none;flex-direction:column;gap:7px;padding:9px;overflow:hidden;min-height:0;border-top:1px solid #1e1e1e}
+.tab-panel.active{display:flex}
+
+/* ── VaR cards ── */
+#var-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;flex-shrink:0}
+.vc{background:#131313;border:1px solid #1e1e1e;border-radius:7px;padding:9px 11px;display:flex;flex-direction:column;gap:2px;position:relative;transition:box-shadow .2s}
+.vc.hi{box-shadow:0 0 0 1px currentColor}
+.vc-lbl{font-size:8px;color:#333;text-transform:uppercase;letter-spacing:.05em}
+.vc-name{font-size:10.5px;font-weight:600;color:#bbb;line-height:1.2}
+.vc-pct{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15;margin:3px 0 1px}
+.vc-brl{font-size:10px;color:#666;font-variant-numeric:tabular-nums}
+.vc-sub{font-size:8.5px;color:#333;margin-top:2px;line-height:1.3}
+.badge{position:absolute;top:6px;right:6px;background:#2a1515;color:#e07070;border:1px solid #3a2020;border-radius:3px;font-size:7px;padding:1px 4px;font-weight:700}
+
+/* ── Metric row ── */
+.mrow{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;flex-shrink:0}
+.mc{background:#0f0f0f;border:1px solid #1a1a1a;border-radius:5px;padding:7px 9px;display:flex;flex-direction:column;gap:2px}
+.mc-tag{font-size:7.5px;color:#2a2a2a;text-transform:uppercase;letter-spacing:.05em}
+.mc-name{font-size:9px;color:#555;line-height:1.25}
+.mc-val{font-size:14px;font-weight:700;color:#bbb;font-variant-numeric:tabular-nums}
+.mc-brl{font-size:9px;color:#484848;font-variant-numeric:tabular-nums}
+
+/* ── Bottom grid (sim tab) ── */
+#bg{display:grid;grid-template-columns:216px 1fr;gap:7px;flex:1;min-height:0}
+#sp{background:#0f0f0f;border:1px solid #1a1a1a;border-radius:7px;padding:9px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+.tl{display:flex;flex-direction:column;align-items:center;gap:4px;background:#080808;border:1px solid #141414;border-radius:7px;padding:8px 5px}
+.tl-b{width:38px;height:38px;border-radius:50%;border:2px solid #1a1a1a;display:flex;align-items:center;justify-content:center;font-size:8px;color:#252525;font-weight:700;transition:all .3s}
+.tl-b.gv{background:#0d2b0d;border-color:#4caf50;color:#4caf50;box-shadow:0 0 14px rgba(76,175,80,.5)}
+.tl-b.ga{background:#2b2000;border-color:#ffd54f;color:#ffd54f;box-shadow:0 0 14px rgba(255,213,79,.5)}
+.tl-b.gr{background:#2b0a0a;border-color:#ef5350;color:#ef5350;box-shadow:0 0 14px rgba(239,83,80,.5)}
+#sv{text-align:center;font-size:10px;font-weight:700;padding:3px 6px;border-radius:3px}
+.sv-v{background:#091409;color:#4caf50}
+.sv-a{background:#191200;color:#ffd54f}
+.sv-r{background:#190707;color:#ef5350}
+#sd{font-size:9px;color:#4a4a4a;text-align:center;line-height:1.5}
+#stp{background:#0f0f0f;border:1px solid #1a1a1a;border-radius:7px;padding:9px 11px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+#sa{display:none;background:#1e0d0d;border:1px solid #4a1515;border-radius:4px;padding:5px 8px;font-size:9px;color:#e08080;line-height:1.4}
+.stbl{width:100%;border-collapse:collapse}
+.stbl th{font-size:8px;color:#2e2e2e;text-transform:uppercase;letter-spacing:.05em;padding:0 5px 4px;font-weight:600}
+.stbl th:not(:first-child){text-align:right}
+.str td{padding:3px 5px;font-size:10px;color:#888;vertical-align:middle;border-bottom:1px solid #131313}
+.str:last-child td{border-bottom:none}
+.str.hl td{background:#1a1010;color:#c09090}
+.s-nome{color:#bbb !important}
+.s-chq{text-align:right;color:#c06060 !important;font-variant-numeric:tabular-nums}
+.s-per{text-align:right;font-variant-numeric:tabular-nums}
+.s-mult{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.s-bar{display:flex;justify-content:flex-end}
+.sb{height:4px;border-radius:2px;min-width:3px}
+
+/* ── Performance tab ── */
+#kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;flex-shrink:0}
+.pi{background:#0d0d0d;border:1px solid #1a1a1a;border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;border-top:2px solid #222;transition:border-top-color .3s}
+.pi-tag{font-size:7.5px;color:#282828;text-transform:uppercase;letter-spacing:.06em}
+.pi-name{font-size:9px;color:#444;line-height:1.3;margin-bottom:1px}
+.pi-val{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
+.pi-sub{font-size:8.5px;color:#383838;line-height:1.3}
+.pi-st{font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 5px;border-radius:2px;align-self:flex-start;margin-top:2px}
+.ps-ok  {background:#081508;color:#4caf50}
+.ps-warn{background:#181100;color:#ffd54f}
+.ps-crit{background:#180505;color:#ef5350}
+#charts-row{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;flex:1;min-height:0}
+.cp{background:#0f0f0f;border:1px solid #1a1a1a;border-radius:7px;padding:9px 10px;display:flex;flex-direction:column;gap:5px;overflow:hidden}
+.cp-title{font-size:9px;font-weight:600;color:#555}
+.cp-sub{font-size:8px;color:#2e2e2e;line-height:1.3}
+.cp canvas{flex:1;min-height:0;display:block;width:100%}
+
+/* ── Prompt bar ── */
+#pb{border-top:1px solid #151515;background:#090909;padding:6px 13px;display:flex;align-items:center;gap:10px;min-height:40px;max-height:50px;flex-shrink:0}
+#pt{flex:1;color:#3e3e3e;font-size:10px;line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+#cb{background:#131328;border:1px solid #28285a;color:#5858a0;border-radius:4px;padding:4px 11px;cursor:pointer;font-size:10px;white-space:nowrap;flex-shrink:0;transition:all .15s;font-family:inherit}
+#cb:hover{background:#1c1c44;border-color:#6060c8;color:#a0a0e0}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ── Sidebar ── -->
+<div id="sidebar">
+  <div>
+    <div class="st">Cenários rápidos</div>
+    <div class="pg">
+      <button class="pb" data-p="p">Banco Pequeno<br><span style="color:#383838;font-size:8.5px">R$ 5 M</span></button>
+      <button class="pb on" data-p="m">Banco Médio<br><span style="color:#383838;font-size:8.5px">R$ 10 M</span></button>
+      <button class="pb" data-p="g">Banco Grande<br><span style="color:#383838;font-size:8.5px">R$ 50 M</span></button>
+      <button class="pb" data-p="s">Stress 2008<br><span style="color:#383838;font-size:8.5px">Crise Global</span></button>
+    </div>
+  </div>
+  <div class="cg">
+    <div class="st">Valor da carteira</div>
+    <div class="cl"><span>Nocional</span><strong id="dn">R$ 10,0 M</strong></div>
+    <input type="range" id="sn" min="1" max="50" value="10" step="1">
+  </div>
+  <div class="cg">
+    <div class="st">Tolerância a risco</div>
+    <div class="rg" id="rg-c">
+      <button class="rb" data-v="90">90%</button>
+      <button class="rb" data-v="95">95%</button>
+      <button class="rb on" data-v="99">99%</button>
+    </div>
+    <div class="hint">99% = só 1% de chance de superar o VaR</div>
+  </div>
+  <div class="cg">
+    <div class="st">Sensibilidade ao mercado recente</div>
+    <div class="cl"><span>Memória EWMA (λ)</span><strong id="dl">0.94</strong></div>
+    <input type="range" id="sl" min="85" max="99" value="94" step="1">
+    <div class="hint">λ menor → reage mais rápido a quedas recentes</div>
+  </div>
+  <div class="cg">
+    <div class="st">Horizonte de risco</div>
+    <div class="rg" id="rg-h">
+      <button class="rb on" data-v="1">1 dia</button>
+      <button class="rb" data-v="5">5 dias</button>
+      <button class="rb" data-v="10">10 dias</button>
+    </div>
+    <div class="hint">Basileia exige mínimo de 10 dias</div>
+  </div>
+  <div class="cg">
+    <div class="st">Simular falhas do modelo</div>
+    <div class="cl"><span style="color:#555">E se houvesse</span><strong id="de">1 erro</strong></div>
+    <input type="range" id="se" min="0" max="15" value="1" step="1">
+    <div style="display:flex;justify-content:space-between;font-size:7.5px;color:#282828">
+      <span>0</span><span style="color:#1e3e1e">Verde ≤3</span><span style="color:#3e3000">Amar. 4–9</span><span style="color:#3e1010">≥10 Verm.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Content ── -->
+<div id="content">
+  <div id="tab-bar">
+    <button class="tab-btn on" data-tab="sim">Simulações / Calculadora</button>
+    <button class="tab-btn" data-tab="perf">Análise de Performance</button>
+  </div>
+
+  <!-- ── TAB: Simulações ── -->
+  <div id="tab-sim" class="tab-panel active">
+    <div id="var-cards">
+      <div class="vc" id="c-h" style="color:#4db6ac">
+        <div class="vc-lbl">Perda máxima esperada</div>
+        <div class="vc-name">Simulação Histórica</div>
+        <div class="vc-pct" id="vh-p">—</div>
+        <div class="vc-brl" id="vh-b">—</div>
+        <div class="vc-sub">Baseado nos piores dias reais dos últimos 2 anos</div>
+      </div>
+      <div class="vc" id="c-p" style="color:#7c6fff">
+        <div class="vc-lbl">Perda máxima esperada</div>
+        <div class="vc-name">Modelo Estatístico</div>
+        <div class="vc-pct" id="vp-p">—</div>
+        <div class="vc-brl" id="vp-b">—</div>
+        <div class="vc-sub">Assume distribuição normal dos retornos</div>
+      </div>
+      <div class="vc" id="c-e" style="color:#ff8a65">
+        <div class="vc-lbl">Perda máxima esperada</div>
+        <div class="vc-name">Volatilidade Dinâmica (EWMA)</div>
+        <div class="vc-pct" id="ve-p">—</div>
+        <div class="vc-brl" id="ve-b">—</div>
+        <div class="vc-sub">Dá mais peso ao que aconteceu recentemente</div>
+      </div>
+      <div class="vc" id="c-m" style="color:#64b5f6">
+        <div class="vc-lbl">Perda máxima esperada</div>
+        <div class="vc-name">Simulação Monte Carlo</div>
+        <div class="vc-pct" id="vm-p">—</div>
+        <div class="vc-brl" id="vm-b">—</div>
+        <div class="vc-sub">1.000 cenários simulados com dados reais</div>
+      </div>
+    </div>
+
+    <div class="mrow">
+      <div class="mc">
+        <div class="mc-tag">Se o pior acontecer, quanto perco além do VaR?</div>
+        <div class="mc-name">Perda Esperada — Histórica (ES)</div>
+        <div class="mc-val" id="eh-p">—</div>
+        <div class="mc-brl" id="eh-b">—</div>
+      </div>
+      <div class="mc">
+        <div class="mc-tag">Se o pior acontecer, quanto perco além do VaR?</div>
+        <div class="mc-name">Perda Esperada — Monte Carlo (ES)</div>
+        <div class="mc-val" id="em-p">—</div>
+        <div class="mc-brl" id="em-b">—</div>
+      </div>
+      <div class="mc" style="border-left:2px solid #222">
+        <div class="mc-tag">Requisito regulatório — Basileia II/III</div>
+        <div class="mc-name">VaR 10 dias — Simulação Histórica</div>
+        <div class="mc-val" id="r10h-p">—</div>
+        <div class="mc-brl" id="r10h-b">—</div>
+      </div>
+      <div class="mc" style="border-left:2px solid #222">
+        <div class="mc-tag">Requisito regulatório — Basileia II/III</div>
+        <div class="mc-name">VaR 10 dias — Modelo Estatístico</div>
+        <div class="mc-val" id="r10p-p">—</div>
+        <div class="mc-brl" id="r10p-b">—</div>
+      </div>
+    </div>
+
+    <div id="bg">
+      <!-- Semaphore -->
+      <div id="sp">
+        <div class="st">Semáforo Basileia — Backtesting</div>
+        <div class="tl">
+          <div class="tl-b" id="bv">Verde</div>
+          <div class="tl-b" id="ba">Amarelo</div>
+          <div class="tl-b" id="br">Vermelho</div>
+        </div>
+        <div id="sv" class="sv-v">—</div>
+        <div id="sd">—</div>
+      </div>
+      <!-- Stress test -->
+      <div id="stp">
+        <div class="st">O que aconteceria em crises históricas?</div>
+        <div id="sa"></div>
+        <table class="stbl">
+          <thead><tr>
+            <th>Crise</th><th>Queda</th><th>Perda estimada</th><th>× VaR diário</th><th style="text-align:right">Severidade</th>
+          </tr></thead>
+          <tbody id="stb"></tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /tab-sim -->
+
+  <!-- ── TAB: Performance ── -->
+  <div id="tab-perf" class="tab-panel">
+    <div id="kpi-row">
+      <div class="pi" id="pi-kup">
+        <div class="pi-tag">Validação Estatística</div>
+        <div class="pi-name">O modelo erra na frequência correta? (Teste de Kupiec)</div>
+        <div class="pi-val" id="kup-val">—</div>
+        <div class="pi-sub" id="kup-sub">—</div>
+        <div class="pi-st" id="kup-st">—</div>
+      </div>
+      <div class="pi" id="pi-exc">
+        <div class="pi-tag">Acurácia do Backtesting</div>
+        <div class="pi-name">Taxa de erro real vs. taxa tolerada pelo regulador</div>
+        <div class="pi-val" id="exc-val">—</div>
+        <div class="pi-sub" id="exc-sub">—</div>
+        <div class="pi-st" id="exc-st">—</div>
+      </div>
+      <div class="pi" id="pi-conv">
+        <div class="pi-tag">Coerência entre Métodos</div>
+        <div class="pi-name">Os 4 modelos chegam a resultados próximos?</div>
+        <div class="pi-val" id="conv-val">—</div>
+        <div class="pi-sub" id="conv-sub">—</div>
+        <div class="pi-st" id="conv-st">—</div>
+      </div>
+      <div class="pi" id="pi-sig">
+        <div class="pi-tag">Sinal de Mercado — EWMA</div>
+        <div class="pi-name">Volatilidade recente vs. média histórica</div>
+        <div class="pi-val" id="sig-val">—</div>
+        <div class="pi-sub" id="sig-sub">—</div>
+        <div class="pi-st" id="sig-st">—</div>
+      </div>
+      <div class="pi" id="pi-cap">
+        <div class="pi-tag">Capital Regulatório — Basileia</div>
+        <div class="pi-name">Quanto da carteira precisa ficar em reserva?</div>
+        <div class="pi-val" id="cap-val">—</div>
+        <div class="pi-sub" id="cap-sub">—</div>
+        <div class="pi-st" id="cap-st">—</div>
+      </div>
+    </div>
+
+    <div id="charts-row">
+      <div class="cp">
+        <div class="cp-title">Sensibilidade do EWMA ao Parâmetro λ</div>
+        <div class="cp-sub">VaR EWMA em % · linha = valor atual de λ · quanto menor λ, maior a reatividade a choques recentes</div>
+        <canvas id="cv-lam"></canvas>
+      </div>
+      <div class="cp">
+        <div class="cp-title">Distribuição de Perdas e Posição do VaR</div>
+        <div class="cp-sub">Curva normal estimada · linha vermelha = VaR histórico · área sombreada = 1% da cauda</div>
+        <canvas id="cv-dist"></canvas>
+      </div>
+      <div class="cp">
+        <div class="cp-title">VaR por Horizonte — Todos os Métodos</div>
+        <div class="cp-sub">Escalonamento √T (regra de Basileia) · dias 1–15 · mostra como o risco cresce com o tempo</div>
+        <canvas id="cv-horiz"></canvas>
+      </div>
+    </div>
+  </div><!-- /tab-perf -->
+
+</div><!-- /content -->
+</div><!-- /app -->
+
+<div id="pb">
+  <div id="pt"></div>
+  <button id="cb">Copiar resumo</button>
+</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────
+const BASE = {hist:0.0312, param:0.0308, ewma:0.0261, mc:0.0315, esH:0.0420, eMC:0.0430};
+
+function zScore(confPct) {
+  if (confPct >= 99) return 2.326;
+  if (confPct >= 95) return 1.645;
+  return 1.282;
+}
+
+const STRESS = [
+  {nome:'Crise Global 2008',  per:'Set/2008–Mar/2009', c:-0.602},
+  {nome:'COVID-19',           per:'Fev/2020–Mar/2020', c:-0.466},
+  {nome:'Recessão Brasil',    per:'Jan/2015–Set/2015', c:-0.341},
+  {nome:'Dívida Europeia',    per:'Jul/2011–Ago/2011', c:-0.272},
+  {nome:'Correção Out/2022',  per:'Out/2022',           c:-0.052},
+  {nome:'Correção Jan/2023',  per:'Jan/2023',           c:-0.038},
+];
+
+const METHOD_COLORS = {hist:'#4db6ac', param:'#7c6fff', ewma:'#ff8a65', mc:'#64b5f6'};
+
+const PRESETS = {
+  p:{n:5,  confPct:99, lam:94, h:1,  exc:1, hl:-1},
+  m:{n:10, confPct:99, lam:94, h:1,  exc:1, hl:-1},
+  g:{n:50, confPct:99, lam:94, h:10, exc:1, hl:-1},
+  s:{n:10, confPct:99, lam:94, h:1,  exc:1, hl:0 },
+};
+
+// ── State ──────────────────────────────────────────────────────────────────
+let S = {n:10, confPct:99, lam:94, h:1, exc:1, hl:-1};
+let activeTab = 'sim';
+
+// ── Formatters ─────────────────────────────────────────────────────────────
+const fp  = v => (v*100).toFixed(2)+'%';
+const fb  = v => 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});
+const fm  = v => 'R$ '+(v/1e6).toFixed(1)+' M';
+
+// ── Calc ───────────────────────────────────────────────────────────────────
+function calc() {
+  const noc = S.n * 1e6;
+  const z   = zScore(S.confPct);
+  const zS  = z / 2.326;
+  const hS  = Math.sqrt(S.h);
+  const lam = S.lam / 100;
+  const lF  = 1 + (0.94 - lam) * 3.5;
+
+  const hist  = BASE.hist  * zS * hS;
+  const param = BASE.param * zS * hS;
+  const ewma  = BASE.ewma  * zS * hS * lF;
+  const mc    = BASE.mc    * zS * hS;
+  const esH   = BASE.esH   * zS * hS;
+  const eMC   = BASE.eMC   * zS * hS;
+  const r10h  = BASE.hist  * zS * Math.sqrt(10);
+  const r10p  = BASE.param * zS * Math.sqrt(10);
+  const maxP  = Math.max(hist, param, ewma, mc);
+
+  // Base values at 1d/99% (for performance comparisons)
+  const ewmaBase1d99  = BASE.ewma  * lF;
+  const paramBase1d99 = BASE.param;
+
+  return {noc, hist, param, ewma, mc, esH, eMC, r10h, r10p, maxP,
+          ewmaBase1d99, paramBase1d99, zS, hS};
+}
+
+// ── Render all ─────────────────────────────────────────────────────────────
+function render() {
+  const v = calc();
+  renderSim(v);
+  renderPerf(v);
+  updatePrompt(v);
+  if (activeTab === 'perf') {
+    setTimeout(() => drawCharts(v), 10);
+  }
+}
+
+// ── Simulation tab ─────────────────────────────────────────────────────────
+function renderSim(v) {
+  const noc = v.noc;
+
+  // VaR cards
+  [['c-h','vh-p','vh-b',v.hist], ['c-p','vp-p','vp-b',v.param],
+   ['c-e','ve-p','ve-b',v.ewma], ['c-m','vm-p','vm-b',v.mc]].forEach(([cid,pid,bid,val]) => {
+    g(pid).textContent = fp(val);
+    g(bid).textContent = fb(val * noc);
+    const cd = g(cid);
+    const isMax = Math.abs(val - v.maxP) < 1e-10;
+    cd.classList.toggle('hi', isMax);
+    const ob = cd.querySelector('.badge'); if (ob) ob.remove();
+    if (isMax) { const b = ce('div'); b.className='badge'; b.textContent='▲ MAIOR'; cd.appendChild(b); }
+  });
+
+  // ES + 10d
+  g('eh-p').textContent=fp(v.esH);   g('eh-b').textContent=fb(v.esH*noc);
+  g('em-p').textContent=fp(v.eMC);   g('em-b').textContent=fb(v.eMC*noc);
+  g('r10h-p').textContent=fp(v.r10h); g('r10h-b').textContent=fb(v.r10h*noc);
+  g('r10p-p').textContent=fp(v.r10p); g('r10p-b').textContent=fb(v.r10p*noc);
+
+  // Semaphore
+  const exc = S.exc;
+  const zona = exc >= 10 ? 'r' : exc >= 4 ? 'a' : 'v';
+  g('bv').className = 'tl-b' + (zona==='v' ? ' gv' : '');
+  g('ba').className = 'tl-b' + (zona==='a' ? ' ga' : '');
+  g('br').className = 'tl-b' + (zona==='r' ? ' gr' : '');
+  const sv = g('sv'), sd = g('sd');
+  if (zona==='v') {
+    sv.className='sv-v'; sv.textContent='ZONA VERDE — MODELO APROVADO';
+    sd.innerHTML=`Acertou <b style="color:#4caf50">${250-exc} de 250 dias</b>.<br>Reguladores aceitam até 4 erros/ano.`;
+  } else if (zona==='a') {
+    sv.className='sv-a'; sv.textContent='ZONA AMARELA — ATENÇÃO';
+    sd.innerHTML=`<b style="color:#ffd54f">${exc} exceções</b> em 250 dias.<br>Regulador pode exigir capital adicional.`;
+  } else {
+    sv.className='sv-r'; sv.textContent='ZONA VERMELHA — REVISÃO OBRIGATÓRIA';
+    sd.innerHTML=`<b style="color:#ef5350">${exc} exceções</b> em 250 dias.<br>Modelo inválido para fins regulatórios.`;
+  }
+  g('de').textContent = exc===1 ? '1 erro' : `${exc} erros`;
+
+  // Stress table
+  const varRef = v.hist * noc;
+  const tbody = g('stb'); tbody.innerHTML = '';
+  STRESS.forEach((s, i) => {
+    const perda = Math.abs(s.c) * noc;
+    const mult  = perda / varRef;
+    const col   = mult > 10 ? '#ef5350' : mult > 5 ? '#ffd54f' : '#4db6ac';
+    const bw    = Math.min(68, Math.round((mult / 20) * 68));
+    const tr    = ce('tr'); tr.className = 'str' + (S.hl===i ? ' hl' : '');
+    tr.innerHTML =
+      `<td class="s-nome">${s.nome}<br><span style="color:#2e2e2e;font-size:8px">${s.per}</span></td>`+
+      `<td class="s-chq">${(s.c*100).toFixed(1)}%</td>`+
+      `<td class="s-per">${fb(perda)}</td>`+
+      `<td class="s-mult" style="color:${col}">${mult.toFixed(1)}×</td>`+
+      `<td><div class="s-bar"><div class="sb" style="width:${bw}px;background:${col}"></div></div></td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Stress alert
+  const sa = g('sa');
+  if (S.hl === 0) {
+    const p = Math.abs(STRESS[0].c) * noc;
+    sa.style.display = 'block';
+    sa.innerHTML = `⚠ <b>Alerta 2008:</b> Uma crise equivalente causaria <b>${fb(p)}</b> de perda — `+
+      `${(p/varRef).toFixed(0)}× o VaR diário. Capital alocado cobriria apenas ${Math.min(100,Math.round(varRef/p*100))}% da perda.`;
+  } else { sa.style.display = 'none'; }
+}
+
+// ── Performance tab ────────────────────────────────────────────────────────
+function renderPerf(v) {
+  const exc = S.exc, T = 250, p0 = (100 - S.confPct) / 100;
+
+  // 1. Kupiec LR test
+  let LR;
+  if (exc === 0) {
+    LR = -2 * T * Math.log(1 - p0);
+  } else {
+    const ph = exc / T;
+    LR = -2 * (exc*Math.log(p0) + (T-exc)*Math.log(1-p0) - exc*Math.log(ph) - (T-exc)*Math.log(1-ph));
+  }
+  const kupOk = LR < 3.84;
+  g('kup-val').textContent = kupOk ? 'APROVADO' : 'REPROVADO';
+  g('kup-val').style.color = kupOk ? '#4caf50' : '#ef5350';
+  g('kup-sub').textContent = `Estatística LR = ${LR.toFixed(2)} · limite: 3,84`;
+  setSt('kup-st', kupOk?'ps-ok':'ps-crit', kupOk?'VÁLIDO ESTATISTICAMENTE':'FALHA ESTATÍSTICA');
+  g('pi-kup').style.borderTopColor = kupOk ? '#4caf50' : '#ef5350';
+
+  // 2. Acurácia: taxa real vs esperada
+  const taxaReal = exc / T * 100;
+  const taxaEsp  = p0 * 100;
+  const ratio    = taxaEsp > 0 ? taxaReal / taxaEsp : 0;
+  const excOk = ratio <= 1.5, excWarn = ratio > 1.5 && ratio <= 3;
+  g('exc-val').textContent = taxaReal.toFixed(2) + '%';
+  g('exc-val').style.color = excOk ? '#4caf50' : excWarn ? '#ffd54f' : '#ef5350';
+  g('exc-sub').textContent = `esperado ${taxaEsp.toFixed(1)}% · razão: ${ratio.toFixed(1)}×`;
+  setSt('exc-st', excOk?'ps-ok':excWarn?'ps-warn':'ps-crit',
+    excOk?'DENTRO DO TOLERADO':excWarn?'ACIMA DO ESPERADO':'FALHA DE COBERTURA');
+  g('pi-exc').style.borderTopColor = excOk ? '#4caf50' : excWarn ? '#ffd54f' : '#ef5350';
+
+  // 3. Convergência: CV dos 4 métodos
+  const vals = [v.hist, v.param, v.ewma, v.mc];
+  const mean = vals.reduce((a,b)=>a+b,0) / 4;
+  const std  = Math.sqrt(vals.reduce((a,b)=>a+(b-mean)**2,0) / 4);
+  const cv   = mean > 0 ? std/mean*100 : 0;
+  const cvOk = cv < 15, cvWarn = cv >= 15 && cv < 30;
+  g('conv-val').textContent = cv.toFixed(1) + '% de dispersão';
+  g('conv-val').style.color = cvOk ? '#4caf50' : cvWarn ? '#ffd54f' : '#ef5350';
+  g('conv-sub').textContent = `maior: ${fp(Math.max(...vals))} · menor: ${fp(Math.min(...vals))}`;
+  setSt('conv-st', cvOk?'ps-ok':cvWarn?'ps-warn':'ps-crit',
+    cvOk?'MÉTODOS CONSISTENTES':cvWarn?'DIVERGÊNCIA MODERADA':'ALTA DIVERGÊNCIA');
+  g('pi-conv').style.borderTopColor = cvOk ? '#4caf50' : cvWarn ? '#ffd54f' : '#ef5350';
+
+  // 4. Sinal de mercado: EWMA base 1d/99% vs Paramétrico base 1d/99%
+  const diff = (v.ewmaBase1d99 - v.paramBase1d99) / v.paramBase1d99 * 100;
+  const calmo = diff < -8, quente = diff > 8;
+  g('sig-val').textContent = (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%';
+  g('sig-val').style.color = quente ? '#ef5350' : calmo ? '#4db6ac' : '#ffd54f';
+  g('sig-sub').textContent = quente ? 'EWMA acima do Paramétrico — volatilidade recente elevada'
+                           : calmo  ? 'EWMA abaixo do Paramétrico — volatilidade recente baixa'
+                                    : 'EWMA em linha com o Paramétrico — condições normais';
+  setSt('sig-st', quente?'ps-crit':calmo?'ps-ok':'ps-warn',
+    quente?'MERCADO AGITADO':calmo?'MERCADO CALMO':'MERCADO NEUTRO');
+  g('pi-sig').style.borderTopColor = quente ? '#ef5350' : calmo ? '#4db6ac' : '#ffd54f';
+
+  // 5. Capital regulatório: VaR 10d como % do nocional
+  const capPct = v.r10h * 100;
+  const capBRL = v.r10h * v.noc;
+  const capOk  = capPct < 12, capWarn = capPct >= 12 && capPct < 20;
+  g('cap-val').textContent = capPct.toFixed(2) + '% da carteira';
+  g('cap-val').style.color = '#c8c8c8';
+  g('cap-sub').textContent = `${fb(capBRL)} de capital mínimo exigido`;
+  setSt('cap-st', capOk?'ps-ok':capWarn?'ps-warn':'ps-crit',
+    capOk?'CAPITAL EFICIENTE':capWarn?'CAPITAL MODERADO':'CAPITAL ELEVADO');
+  g('pi-cap').style.borderTopColor = capOk ? '#4caf50' : capWarn ? '#ffd54f' : '#ef5350';
+}
+
+// ── Charts ─────────────────────────────────────────────────────────────────
+function drawCharts(v) {
+  drawLambdaChart(v);
+  drawDistChart(v);
+  drawHorizChart(v);
+}
+
+function setupCanvas(id) {
+  const cvs = g(id);
+  const W = cvs.parentElement.clientWidth - 20;
+  const H = cvs.parentElement.clientHeight - 50;
+  cvs.width  = Math.max(W, 100);
+  cvs.height = Math.max(H, 80);
+  return {cvs, W:cvs.width, H:cvs.height, cx:cvs.getContext('2d')};
+}
+
+// Chart 1: EWMA VaR vs lambda
+function drawLambdaChart(v) {
+  const {cvs, W, H, cx} = setupCanvas('cv-lam');
+  cx.clearRect(0, 0, W, H);
+
+  const PL = 30, PR = 10, PT = 18, PB = 20;
+  const cW = W - PL - PR, cH = H - PT - PB;
+  const lams = []; for (let l=85; l<=99; l++) lams.push(l);
+  const vars = lams.map(l => BASE.ewma * (1+(0.94-l/100)*3.5) * zScore(S.confPct)/2.326 * Math.sqrt(S.h) * 100);
+  const minV = Math.min(...vars)*0.95, maxV = Math.max(...vars)*1.05;
+  const px = i => PL + (i/(lams.length-1))*cW;
+  const py = val => PT + cH - ((val-minV)/(maxV-minV))*cH;
+
+  // Grid
+  cx.strokeStyle = '#161616'; cx.lineWidth = 1;
+  [0.25,0.5,0.75,1].forEach(f => {
+    const y = PT + cH*(1-f);
+    cx.beginPath(); cx.moveTo(PL, y); cx.lineTo(PL+cW, y); cx.stroke();
+    cx.fillStyle='#282828'; cx.font='7px sans-serif'; cx.textAlign='right';
+    cx.fillText(((minV+(maxV-minV)*f)).toFixed(2)+'%', PL-3, y+3);
+  });
+  // X labels
+  cx.fillStyle='#282828'; cx.font='7.5px sans-serif'; cx.textAlign='center';
+  [85,88,91,94,97,99].forEach(l => {
+    const i = lams.indexOf(l);
+    if (i>=0) cx.fillText('0.'+l, px(i), H-4);
+  });
+
+  // Area fill
+  cx.beginPath(); cx.moveTo(px(0), PT+cH);
+  vars.forEach((val,i) => cx.lineTo(px(i), py(val)));
+  cx.lineTo(px(vars.length-1), PT+cH); cx.closePath();
+  cx.fillStyle = 'rgba(255,138,101,0.10)'; cx.fill();
+
+  // Line
+  cx.beginPath(); cx.moveTo(px(0), py(vars[0]));
+  vars.forEach((val,i) => cx.lineTo(px(i), py(val)));
+  cx.strokeStyle='#ff8a65'; cx.lineWidth=1.5; cx.stroke();
+
+  // Current lambda marker
+  const ci = lams.indexOf(S.lam);
+  if (ci >= 0) {
+    const mx=px(ci), my=py(vars[ci]);
+    cx.strokeStyle='rgba(255,138,101,0.4)'; cx.lineWidth=1; cx.setLineDash([3,3]);
+    cx.beginPath(); cx.moveTo(mx, PT); cx.lineTo(mx, PT+cH); cx.stroke();
+    cx.setLineDash([]);
+    cx.beginPath(); cx.arc(mx, my, 3.5, 0, Math.PI*2);
+    cx.fillStyle='#ff8a65'; cx.fill();
+    cx.fillStyle='#ff8a65'; cx.font='bold 8px sans-serif'; cx.textAlign='center';
+    cx.fillText(vars[ci].toFixed(2)+'%', mx, my-7);
+  }
+}
+
+// Chart 2: Loss distribution + VaR marker
+function drawDistChart(v) {
+  const {cvs, W, H, cx} = setupCanvas('cv-dist');
+  cx.clearRect(0, 0, W, H);
+
+  const PL=8, PR=8, PT=18, PB=18;
+  const cW=W-PL-PR, cH=H-PT-PB;
+  const sigma = BASE.hist / 2.326;
+  const xMin=-4*sigma, xMax=4*sigma;
+  const norm = x => Math.exp(-x*x/(2*sigma*sigma)) / (sigma*Math.sqrt(2*Math.PI));
+  const steps=120;
+  const pts=[];
+  for(let i=0;i<=steps;i++){const x=xMin+(xMax-xMin)*(i/steps);pts.push({x,y:norm(x)});}
+  const maxY=Math.max(...pts.map(p=>p.y));
+  const tx = x => PL+((x-xMin)/(xMax-xMin))*cW;
+  const ty = y => PT+cH-((y/maxY)*(cH*0.9));
+  const varX = v.hist;
+
+  // Shaded tail
+  cx.beginPath(); cx.moveTo(tx(varX), ty(0));
+  pts.filter(p=>p.x>=varX).forEach(p=>cx.lineTo(tx(p.x), ty(p.y)));
+  cx.lineTo(tx(xMax), ty(0)); cx.closePath();
+  cx.fillStyle='rgba(239,83,80,0.18)'; cx.fill();
+
+  // Curve
+  cx.beginPath(); cx.moveTo(tx(pts[0].x), ty(pts[0].y));
+  pts.forEach(p=>cx.lineTo(tx(p.x), ty(p.y)));
+  cx.strokeStyle='#7c6fff'; cx.lineWidth=1.5; cx.stroke();
+
+  // Baseline
+  cx.strokeStyle='#1a1a1a'; cx.lineWidth=1;
+  cx.beginPath(); cx.moveTo(PL, PT+cH); cx.lineTo(PL+cW, PT+cH); cx.stroke();
+
+  // VaR line
+  const vx=tx(varX);
+  cx.strokeStyle='#ef5350'; cx.lineWidth=1.5; cx.setLineDash([3,3]);
+  cx.beginPath(); cx.moveTo(vx, PT+cH); cx.lineTo(vx, PT+4); cx.stroke();
+  cx.setLineDash([]);
+  cx.fillStyle='#ef5350'; cx.font='bold 7.5px sans-serif'; cx.textAlign='center';
+  cx.fillText('VaR '+fp(varX), vx, PT+1);
+
+  // X labels
+  cx.fillStyle='#2a2a2a'; cx.font='7px sans-serif'; cx.textAlign='center';
+  [[-2*sigma,'-2σ'],[0,'0'],[2*sigma,'+2σ'],[3*sigma,'+3σ']].forEach(([x,l])=>{
+    cx.fillText(l, tx(x), H-3);
+  });
+
+  // Annotation
+  cx.fillStyle='rgba(239,83,80,0.65)'; cx.font='7px sans-serif'; cx.textAlign='left';
+  const aY=ty(norm(varX)*0.4);
+  cx.fillText('←1%', vx+3, aY);
+  cx.fillText('da área', vx+3, aY+9);
+}
+
+// Chart 3: VaR by horizon (1–15 days, all 4 methods)
+function drawHorizChart(v) {
+  const {cvs, W, H, cx} = setupCanvas('cv-horiz');
+  cx.clearRect(0, 0, W, H);
+
+  const PL=32, PR=8, PT=10, PB=18;
+  const cW=W-PL-PR, cH=H-PT-PB;
+  const days=[]; for(let d=1;d<=15;d++) days.push(d);
+  const zS = v.zS;
+
+  const series=[
+    {key:'hist',  base:BASE.hist,  col:'#4db6ac'},
+    {key:'param', base:BASE.param, col:'#7c6fff'},
+    {key:'ewma',  base:BASE.ewma*(1+(0.94-S.lam/100)*3.5), col:'#ff8a65'},
+    {key:'mc',    base:BASE.mc,    col:'#64b5f6'},
+  ];
+  const allVals=series.flatMap(s=>days.map(d=>s.base*zS*Math.sqrt(d)*100));
+  const minV=0, maxV=Math.max(...allVals)*1.05;
+  const px=i=>PL+(i/(days.length-1))*cW;
+  const py=val=>PT+cH-((val-minV)/(maxV-minV))*cH;
+
+  // Grid
+  cx.strokeStyle='#161616'; cx.lineWidth=1;
+  [0.25,0.5,0.75,1].forEach(f=>{
+    const y=PT+cH*(1-f), val=(maxV*f).toFixed(1)+'%';
+    cx.beginPath(); cx.moveTo(PL,y); cx.lineTo(PL+cW,y); cx.stroke();
+    cx.fillStyle='#282828'; cx.font='7px sans-serif'; cx.textAlign='right';
+    cx.fillText(val, PL-3, y+3);
+  });
+  // X labels
+  cx.fillStyle='#282828'; cx.font='7.5px sans-serif'; cx.textAlign='center';
+  [1,5,10,15].forEach(d=>{
+    cx.fillText(d+'d', px(d-1), H-3);
+  });
+  // Current horizon marker
+  const hIdx=S.h-1;
+  cx.strokeStyle='rgba(255,255,255,0.06)'; cx.lineWidth=1; cx.setLineDash([2,4]);
+  cx.beginPath(); cx.moveTo(px(hIdx),PT); cx.lineTo(px(hIdx),PT+cH); cx.stroke();
+  cx.setLineDash([]);
+
+  // Series lines
+  series.forEach(s=>{
+    const pts=days.map(d=>s.base*zS*Math.sqrt(d)*100);
+    cx.beginPath(); cx.moveTo(px(0), py(pts[0]));
+    pts.forEach((val,i)=>cx.lineTo(px(i), py(val)));
+    cx.strokeStyle=s.col; cx.lineWidth=1.5; cx.stroke();
+    // dot at current horizon
+    cx.beginPath(); cx.arc(px(hIdx), py(pts[hIdx]), 3, 0, Math.PI*2);
+    cx.fillStyle=s.col; cx.fill();
+  });
+
+  // Legend (top-right)
+  const labels=[['Hist','#4db6ac'],['Param','#7c6fff'],['EWMA','#ff8a65'],['MC','#64b5f6']];
+  labels.forEach(([l,c],i)=>{
+    cx.fillStyle=c; cx.font='7.5px sans-serif'; cx.textAlign='left';
+    cx.fillRect(PL+cW-52+i%2*26, PT+Math.floor(i/2)*10, 6, 6);
+    cx.fillStyle='#3a3a3a'; cx.fillText(l, PL+cW-44+i%2*26, PT+Math.floor(i/2)*10+6);
+  });
+}
+
+// ── Prompt ──────────────────────────────────────────────────────────────────
+function updatePrompt(v) {
+  const confL=S.confPct+'%', horizL=S.h===1?'1 dia':S.h===5?'5 dias':'10 dias';
+  const exc=S.exc, zona=exc>=10?'VERMELHA':exc>=4?'AMARELA':'VERDE';
+  const p2008=Math.abs(STRESS[0].c)*v.noc;
+  g('pt').textContent=
+    `Carteira ${fm(v.noc)} · ${confL} confiança · ${horizL} · Perda máxima ${fb(v.maxP*v.noc)} (${fp(v.maxP)}) · `+
+    `Backtesting: ${exc} exceção${exc!==1?'ões':''} → Zona ${zona} · `+
+    `Crise 2008 causaria ${fb(p2008)} = ${(p2008/(v.hist*v.noc)).toFixed(0)}× o VaR diário`;
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function g(id){return document.getElementById(id);}
+function ce(t){return document.createElement(t);}
+function setSt(id,cls,txt){const e=g(id);e.className='pi-st '+cls;e.textContent=txt;}
+
+// ── Tabs ────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    activeTab=btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('on',b===btn));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+activeTab));
+    if(activeTab==='perf') setTimeout(()=>drawCharts(calc()),30);
+  });
+});
+
+// ── Controls ────────────────────────────────────────────────────────────────
+function clearPreset(){document.querySelectorAll('.pb').forEach(b=>b.classList.remove('on'));}
+
+g('sn').addEventListener('input',e=>{
+  S.n=+e.target.value; S.hl=-1;
+  g('dn').textContent='R$ '+S.n.toFixed(1)+' M';
+  clearPreset(); render();
+});
+g('sl').addEventListener('input',e=>{
+  S.lam=+e.target.value;
+  g('dl').textContent=(S.lam/100).toFixed(2);
+  clearPreset(); render();
+});
+g('se').addEventListener('input',e=>{
+  S.exc=+e.target.value;
+  g('de').textContent=S.exc===1?'1 erro':`${S.exc} erros`;
+  clearPreset(); render();
+});
+
+document.querySelectorAll('#rg-c .rb').forEach(b=>b.addEventListener('click',()=>{
+  S.confPct=+b.dataset.v;
+  document.querySelectorAll('#rg-c .rb').forEach(x=>x.classList.toggle('on',x===b));
+  clearPreset(); render();
+}));
+document.querySelectorAll('#rg-h .rb').forEach(b=>b.addEventListener('click',()=>{
+  S.h=+b.dataset.v;
+  document.querySelectorAll('#rg-h .rb').forEach(x=>x.classList.toggle('on',x===b));
+  clearPreset(); render();
+}));
+
+document.querySelectorAll('.pb').forEach(btn=>btn.addEventListener('click',()=>{
+  const p=PRESETS[btn.dataset.p]; if(!p) return;
+  S={...p}; clearPreset(); btn.classList.add('on');
+  g('sn').value=S.n;      g('dn').textContent='R$ '+S.n.toFixed(1)+' M';
+  g('sl').value=S.lam;    g('dl').textContent=(S.lam/100).toFixed(2);
+  g('se').value=S.exc;    g('de').textContent=S.exc===1?'1 erro':`${S.exc} erros`;
+  document.querySelectorAll('#rg-c .rb').forEach(x=>x.classList.toggle('on',+x.dataset.v===S.confPct));
+  document.querySelectorAll('#rg-h .rb').forEach(x=>x.classList.toggle('on',+x.dataset.v===S.h));
+  render();
+}));
+
+g('cb').addEventListener('click',()=>{
+  navigator.clipboard.writeText(g('pt').textContent).then(()=>{
+    g('cb').textContent='Copiado!'; setTimeout(()=>g('cb').textContent='Copiar resumo',1500);
+  });
+});
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Grafo VaR Ibovespa — Modelo Bancário</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:#0d0d0d;color:#c8c8c8;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  font-size:12px;height:100vh;display:flex;flex-direction:column;overflow:hidden;
+}
+#main{display:flex;flex:1;overflow:hidden;min-height:0}
+
+/* Controls */
+#controls{
+  width:210px;min-width:210px;background:#111;
+  border-right:1px solid #1e1e1e;padding:8px;
+  overflow:hidden;display:flex;flex-direction:column;gap:7px;
+}
+.cs{display:flex;flex-direction:column;gap:5px}
+.ct{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+    color:#444;padding-bottom:2px;border-bottom:1px solid #1e1e1e;margin-bottom:1px}
+
+/* Presets */
+.pg{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+.pb{
+  background:#181818;border:1px solid #252525;color:#888;
+  border-radius:4px;padding:4px 3px;cursor:pointer;font-size:10px;text-align:center;
+  transition:all .15s;font-family:inherit;
+}
+.pb:hover{background:#222;border-color:#444;color:#ccc}
+.pb.on{background:#1a1832;border-color:#5a53c0;color:#a09aff}
+
+/* Filter rows */
+.fr{display:flex;align-items:center;gap:7px;cursor:pointer;padding:1px 0;user-select:none}
+.fr input{accent-color:#7c6fff;cursor:pointer;width:13px;height:13px}
+.fd{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* Sliders */
+.sr{display:flex;align-items:center;gap:7px}
+.sr span{color:#666;min-width:62px;font-size:11px}
+.sr input{flex:1;accent-color:#7c6fff;cursor:pointer}
+.sv{min-width:26px;text-align:right;color:#888;font-variant-numeric:tabular-nums;font-size:11px}
+
+/* Toggles */
+.tr{display:flex;align-items:center;justify-content:space-between}
+.tr span{color:#666;font-size:11px}
+.tog{position:relative;width:28px;height:15px;flex-shrink:0}
+.tog input{display:none}
+.tk{
+  position:absolute;inset:0;background:#252525;border-radius:8px;
+  transition:background .15s;cursor:pointer;
+}
+.tog input:checked+.tk{background:#6a63d0}
+.tk::after{
+  content:'';position:absolute;left:2px;top:1.5px;
+  width:12px;height:12px;background:#ddd;border-radius:50%;transition:transform .15s;
+}
+.tog input:checked+.tk::after{transform:translateX(12px)}
+
+/* Node detail — floating overlay over canvas */
+#nd{
+  position:absolute;top:10px;right:10px;z-index:15;
+  background:#131313;border:1px solid #2a2a2a;border-radius:6px;
+  padding:10px 12px;display:none;flex-direction:column;gap:3px;
+  min-width:190px;max-width:230px;
+  box-shadow:0 4px 18px rgba(0,0,0,.6);
+}
+#nd.v{display:flex}
+#nd-name{font-weight:600;color:#eee;font-size:12px}
+#nd-type{font-size:10px;margin-bottom:2px}
+.dr{display:flex;justify-content:space-between;font-size:10.5px}
+.dr span:first-child{color:#555}
+.dr span:last-child{color:#aaa}
+
+/* Legend */
+.li{display:flex;align-items:center;gap:6px;color:#555;font-size:10.5px}
+.ld{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* Canvas wrap */
+#cw{flex:1;position:relative;overflow:hidden;background:#0d0d0d}
+#gc{display:block;width:100%;height:100%;cursor:grab}
+#gc.gb{cursor:grabbing}
+
+/* Zoom */
+#zc{position:absolute;bottom:14px;right:14px;display:flex;flex-direction:column;gap:3px}
+.zb{
+  width:26px;height:26px;background:#181818;border:1px solid #252525;
+  color:#777;border-radius:4px;cursor:pointer;font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .1s;font-family:inherit;line-height:1;
+}
+.zb:hover{background:#222;color:#ddd}
+
+/* Tooltip */
+#tt{
+  position:absolute;background:#131326;border:1px solid #2e2e5a;
+  border-radius:6px;padding:8px 11px;pointer-events:none;display:none;
+  z-index:20;font-size:11px;line-height:1.6;color:#bbb;min-width:150px;
+}
+#tt b{color:#eee}
+
+/* Counter badge */
+#badge{
+  position:absolute;top:10px;left:10px;
+  background:rgba(0,0,0,.6);border:1px solid #252525;border-radius:4px;
+  padding:4px 8px;font-size:10px;color:#555;pointer-events:none;
+}
+
+/* Prompt */
+#ps{
+  border-top:1px solid #191919;background:#0a0a0a;
+  padding:9px 14px;display:flex;align-items:center;gap:10px;
+  min-height:52px;max-height:68px;
+}
+#pt{flex:1;color:#666;font-size:11px;line-height:1.5;overflow:hidden;
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}
+#cb{
+  background:#141430;border:1px solid #2e2e5a;color:#7070b8;
+  border-radius:4px;padding:4px 10px;cursor:pointer;font-size:10.5px;
+  white-space:nowrap;flex-shrink:0;transition:all .15s;font-family:inherit;
+}
+#cb:hover{background:#1e1e48;border-color:#6a63d0;color:#b0aaf5}
+</style>
+</head>
+<body>
+
+<div id="main">
+<div id="controls">
+
+  <div class="cs">
+    <div class="ct">Presets</div>
+    <div class="pg">
+      <button class="pb on" data-p="all">Visão Geral</button>
+      <button class="pb" data-p="crit">Críticos</button>
+      <button class="pb" data-p="flow">Fluxo</button>
+      <button class="pb" data-p="conv">Convergência</button>
+    </div>
+  </div>
+
+  <div class="cs">
+    <div class="ct">Filtrar Nós</div>
+    <label class="fr"><input type="checkbox" id="fc" checked>
+      <span class="fd" style="background:#e05252"></span>Crítico</label>
+    <label class="fr"><input type="checkbox" id="fi" checked>
+      <span class="fd" style="background:#7c6fff"></span>Input</label>
+    <label class="fr"><input type="checkbox" id="fm" checked>
+      <span class="fd" style="background:#4db6ac"></span>Intermediário</label>
+    <label class="fr"><input type="checkbox" id="fo" checked>
+      <span class="fd" style="background:#ffd54f"></span>Output</label>
+  </div>
+
+  <div class="cs">
+    <div class="ct">Física</div>
+    <div class="sr"><span>Repulsão</span>
+      <input type="range" id="sc" min="100" max="900" value="380" step="20">
+      <span class="sv" id="vc">380</span></div>
+    <div class="sr"><span>Distância</span>
+      <input type="range" id="sd" min="60" max="240" value="130" step="10">
+      <span class="sv" id="vd">130</span></div>
+    <div class="sr"><span>Gravidade</span>
+      <input type="range" id="sg" min="1" max="60" value="18" step="1">
+      <span class="sv" id="vg">18</span></div>
+  </div>
+
+  <div class="cs">
+    <div class="ct">Exibição</div>
+    <div class="tr"><span>Rótulos</span>
+      <label class="tog"><input type="checkbox" id="tl" checked><span class="tk"></span></label></div>
+    <div class="tr"><span>Setas</span>
+      <label class="tog"><input type="checkbox" id="ta" checked><span class="tk"></span></label></div>
+    <div class="tr"><span>Brilho</span>
+      <label class="tog"><input type="checkbox" id="tg" checked><span class="tk"></span></label></div>
+    <div class="tr"><span>Reiniciar</span>
+      <button class="pb" id="br" style="padding:4px 8px;width:auto">↺</button></div>
+  </div>
+
+  <div class="cs">
+    <div class="ct">Legenda</div>
+    <div class="li"><span class="ld" style="background:#e05252"></span>Crítico (betw > 0.30)</div>
+    <div class="li"><span class="ld" style="background:#7c6fff"></span>Input (sem predecessores)</div>
+    <div class="li"><span class="ld" style="background:#4db6ac"></span>Intermediário</div>
+    <div class="li"><span class="ld" style="background:#ffd54f"></span>Output</div>
+    <div class="li" style="margin-top:3px">
+      <span style="color:#444;font-size:9.5px">● tamanho ∝ betweenness</span></div>
+  </div>
+
+</div><!-- /controls -->
+
+<div id="cw">
+  <canvas id="gc"></canvas>
+  <div id="badge">14 nós · 30 arestas</div>
+  <div id="nd">
+    <div id="nd-name"></div>
+    <div id="nd-type"></div>
+    <div class="dr"><span>betweenness</span><span id="db"></span></div>
+    <div class="dr"><span>in-degree</span><span id="di"></span></div>
+    <div class="dr"><span>out-degree</span><span id="do"></span></div>
+    <div class="dr" style="margin-top:2px"><span style="color:#333">fonte</span>
+      <span id="ds" style="color:#444;font-size:9.5px;text-align:right;max-width:130px;word-break:break-all"></span></div>
+    <div id="nd-desc" style="display:none;margin-top:8px;padding-top:7px;border-top:1px solid #252525;color:#999;font-size:10px;line-height:1.5"></div>
+  </div>
+  <div id="zc">
+    <button class="zb" id="zi">+</button>
+    <button class="zb" id="zr">⊙</button>
+    <button class="zb" id="zo">−</button>
+  </div>
+  <div id="tt"></div>
+</div>
+</div>
+
+<div id="ps">
+  <div id="pt">Carregando…</div>
+  <button id="cb">Copiar</button>
+</div>
+
+<script>
+// ── Data ─────────────────────────────────────────────────────────────────────
+const ND = [
+  {id:'config',       label:'config',       type:'CRITICAL',     bw:.55, ind:0, outd:7, src:'PARÂMETROS!B4:B30',
+   desc:'Hub central com betweenness 0,55 — o mais influente da rede, conectando-se a 7 nós. Qualquer mudança em nocional, λ ou horizonte impacta todos os métodos de VaR simultaneamente.'},
+  {id:'prices',       label:'prices',       type:'INPUT',        bw:.07, ind:0, outd:1, src:'RETORNOS_HIST!B3:B522',
+   desc:'Única porta de entrada de dados externos: 519 preços diários (Jan/2022–Dez/2023) definem toda a janela histórica. Sem essa série, nenhum cálculo consegue iniciar.'},
+  {id:'log_returns',  label:'log_returns',  type:'CRITICAL',     bw:.48, ind:1, outd:7, src:'RETORNOS_HIST!C4:C522',
+   desc:'Betweenness 0,48 — segundo nó mais crítico; transforma preços em log-retornos e alimenta 7 nós downstream. É o "backbone" do modelo: VaR histórico, EWMA, backtesting e MC dependem diretamente desta série.'},
+  {id:'returns_stats',label:'returns_stats',type:'OUTPUT',       bw:.00, ind:1, outd:0, src:'RETORNOS_HIST!B525:B533',
+   desc:'Nó terminal (out-degree 0) que resume média e desvio-padrão da série histórica. Serve de referência de sanidade: σ diário divergente sinaliza erro na série de entrada.'},
+  {id:'var_hist',     label:'var_hist',     type:'INTERMEDIATE', bw:.20, ind:2, outd:2, src:'VaR_HISTÓRICO!D15:F18',
+   desc:'Calcula VaR por percentil empírico sem hipótese distributiva — abordagem não-paramétrica. Seu resultado alimenta var_param como âncora de comparação entre os métodos.'},
+  {id:'sigma_daily',  label:'sigma_daily',  type:'INTERMEDIATE', bw:.18, ind:1, outd:2, src:'VaR_PARAMÉTRICO!B7',
+   desc:'Desvio-padrão histórico simples dos log-retornos; alimenta var_param e ewma_var. Pressupõe volatilidade estacionária — vulnerável em mercados com fat tails como Ibovespa.'},
+  {id:'z_scores',     label:'z_scores',     type:'INPUT',        bw:.12, ind:0, outd:2, src:'VaR_PARAMÉTRICO!B12:B15',
+   desc:'Valores fixos hardcoded na planilha: z₉₉=2,326 e z₉₅=1,645 — não são calculados em tempo de execução. Risco de manutenção: se o nível de confiança mudar, essas constantes precisam ser atualizadas manualmente.'},
+  {id:'var_param',    label:'var_param',    type:'CRITICAL',     bw:.35, ind:4, outd:4, src:'VaR_PARAMÉTRICO!E19:F22',
+   desc:'Betweenness 0,35 — terceiro mais crítico; recebe 4 predecessores e propaga a hipótese de normalidade para backtesting, stress e dashboard. É o ponto de maior amplificação do pressuposto paramétrico na rede.'},
+  {id:'ewma_variance',label:'ewma_variance',type:'INTERMEDIATE', bw:.15, ind:2, outd:1, src:'EWMA_VOL!D3:D528',
+   desc:'Implementa recursão RiskMetrics (σ²_t = 0,94·σ²_{t-1} + 0,06·r²_{t-1}) em 525 passos. Seed σ²₀=0 introduz viés nos primeiros ~11 períodos — limitação conhecida desta abordagem.'},
+  {id:'ewma_var',     label:'ewma_var',     type:'INTERMEDIATE', bw:.10, ind:4, outd:1, src:'EWMA_VOL!G3:H528',
+   desc:'Combina volatilidade dinâmica (EWMA) com z-scores para capturar clusters de volatilidade. Diferencia-se do var_param por usar σ variável no tempo em vez de σ histórico estacionário.'},
+  {id:'backtest',     label:'backtest',     type:'INTERMEDIATE', bw:.08, ind:3, outd:1, src:'BACKTESTING!B3:C265',
+   desc:'Aplica semáforo Basileia: verde (<4 exceções), amarelo (4–9), vermelho (≥10) em 250 dias. Betweenness 0,08 — não influencia outros cálculos; serve exclusivamente para validar se o modelo subestima o risco.'},
+  {id:'stress_test',  label:'stress_test',  type:'OUTPUT',       bw:.00, ind:3, outd:1, src:'STRESS_TEST!B4:H29',
+   desc:'Aplica 6 cenários históricos de crise — o mais severo é Set/2008 com choque de −60,2%. Mede perdas extremas que o VaR estatístico, calibrado em condições normais, sistematicamente subestima.'},
+  {id:'monte_carlo',  label:'monte_carlo',  type:'INTERMEDIATE', bw:.07, ind:2, outd:1, src:'MONTE_CARLO!B1017:B1024',
+   desc:'Simula 1.000 cenários com valores fixos pré-gerados na planilha (sem fórmula de geração em tempo de execução). Branch independente dos outros métodos — sua estimativa de VaR serve de referência cruzada sem circular.'},
+  {id:'dashboard',    label:'dashboard',    type:'OUTPUT',       bw:.00, ind:6, outd:0, src:'RESUMO_EXEC',
+   desc:'Agregador P3 com in-degree 6 — único ponto onde todos os métodos convergem para comparação direta. Nó terminal (out-degree 0); calcula o VaR máximo entre os métodos e emite alerta de limite regulatório.'},
+];
+const ED = [
+  ['config','var_hist'],['config','var_param'],['config','ewma_variance'],
+  ['config','backtest'],['config','stress_test'],['config','monte_carlo'],['config','dashboard'],
+  ['prices','log_returns'],
+  ['log_returns','returns_stats'],['log_returns','var_hist'],['log_returns','sigma_daily'],
+  ['log_returns','ewma_variance'],['log_returns','backtest'],['log_returns','stress_test'],
+  ['log_returns','monte_carlo'],
+  ['sigma_daily','var_param'],['sigma_daily','ewma_var'],
+  ['z_scores','var_param'],['z_scores','ewma_var'],
+  ['var_hist','var_param'],['var_hist','dashboard'],
+  ['var_param','ewma_var'],['var_param','backtest'],['var_param','stress_test'],['var_param','dashboard'],
+  ['ewma_variance','ewma_var'],
+  ['ewma_var','dashboard'],
+  ['backtest','dashboard'],
+  ['stress_test','dashboard'],
+  ['monte_carlo','dashboard'],
+];
+
+const COLORS = {CRITICAL:'#e05252',INPUT:'#7c6fff',INTERMEDIATE:'#4db6ac',OUTPUT:'#ffd54f'};
+const clr = t => COLORS[t]||'#888';
+const rad = bw => 7 + bw * 20;
+
+// ── State ─────────────────────────────────────────────────────────────────────
+const S = {
+  charge:380, dist:130, grav:18,
+  labels:true, arrows:true, glow:true,
+  filters:{CRITICAL:true,INPUT:true,INTERMEDIATE:true,OUTPUT:true},
+  hov:null, sel:null,
+  alpha:1, tx:0, ty:0, scale:1,
+};
+
+// ── Canvas setup ──────────────────────────────────────────────────────────────
+const cv = document.getElementById('gc');
+const cx = cv.getContext('2d');
+
+function resize(){
+  const w = cv.parentElement;
+  cv.width  = w.clientWidth;
+  cv.height = w.clientHeight;
+  S.tx = cv.width  / 2;
+  S.ty = cv.height / 2;
+}
+
+// ── Nodes (physics) ───────────────────────────────────────────────────────────
+const nodes = ND.map((d,i)=>{
+  const a = (i/ND.length)*Math.PI*2;
+  const r = 130 + Math.random()*70;
+  return {...d, x:Math.cos(a)*r, y:Math.sin(a)*r, vx:0, vy:0, fix:false, r:rad(d.bw)};
+});
+const nm = {};
+nodes.forEach(n=>nm[n.id]=n);
+const edges = ED.map(([s,t])=>({s,t}));
+
+// ── Simulation ────────────────────────────────────────────────────────────────
+let raf;
+function tick(){
+  if(S.alpha<.004){S.alpha=0;draw();return;}
+
+  const vis = new Set(nodes.filter(n=>S.filters[n.type]).map(n=>n.id));
+
+  // Repulsion
+  for(let i=0;i<nodes.length;i++){
+    if(!vis.has(nodes[i].id)) continue;
+    for(let j=i+1;j<nodes.length;j++){
+      if(!vis.has(nodes[j].id)) continue;
+      const dx=nodes[j].x-nodes[i].x, dy=nodes[j].y-nodes[i].y;
+      const d2=Math.max(dx*dx+dy*dy,.25), d=Math.sqrt(d2);
+      const f=S.charge*S.alpha/d2;
+      const fx=f*dx/d, fy=f*dy/d;
+      nodes[i].vx-=fx; nodes[i].vy-=fy;
+      nodes[j].vx+=fx; nodes[j].vy+=fy;
+    }
+  }
+
+  // Springs
+  for(const e of edges){
+    if(!vis.has(e.s)||!vis.has(e.t)) continue;
+    const a=nm[e.s],b=nm[e.t];
+    const dx=b.x-a.x, dy=b.y-a.y;
+    const d=Math.sqrt(dx*dx+dy*dy)||.001;
+    const f=(d-S.dist)*.035*S.alpha;
+    const fx=f*dx/d, fy=f*dy/d;
+    if(!a.fix){a.vx+=fx;a.vy+=fy;}
+    if(!b.fix){b.vx-=fx;b.vy-=fy;}
+  }
+
+  // Center gravity
+  const g=S.grav*.001*S.alpha;
+  for(const n of nodes){
+    if(!vis.has(n.id)) continue;
+    n.vx-=n.x*g; n.vy-=n.y*g;
+  }
+
+  // Integrate
+  for(const n of nodes){
+    if(n.fix||!vis.has(n.id)) continue;
+    n.vx*=.83; n.vy*=.83;
+    n.x+=n.vx; n.y+=n.vy;
+  }
+  S.alpha*=.977;
+
+  draw();
+  raf=requestAnimationFrame(tick);
+}
+
+function reheat(a=.7){
+  S.alpha=a;
+  cancelAnimationFrame(raf);
+  raf=requestAnimationFrame(tick);
+}
+
+// ── Rendering ─────────────────────────────────────────────────────────────────
+function connSet(id){
+  const s=new Set([id]);
+  for(const e of edges){
+    if(e.s===id)s.add(e.t);
+    if(e.t===id)s.add(e.s);
+  }
+  return s;
+}
+
+function draw(){
+  const W=cv.width, H=cv.height;
+  cx.clearRect(0,0,W,H);
+  cx.fillStyle='#0d0d0d';
+  cx.fillRect(0,0,W,H);
+
+  cx.save();
+  cx.translate(S.tx,S.ty);
+  cx.scale(S.scale,S.scale);
+
+  const vis=new Set(nodes.filter(n=>S.filters[n.type]).map(n=>n.id));
+  const act=S.sel||S.hov;
+  const conn=act?connSet(act):null;
+
+  // --- Edges ---
+  for(const e of edges){
+    if(!vis.has(e.s)||!vis.has(e.t)) continue;
+    const a=nm[e.s],b=nm[e.t];
+    const dx=b.x-a.x, dy=b.y-a.y;
+    const d=Math.sqrt(dx*dx+dy*dy);
+    if(d<1) continue;
+    const nx=dx/d, ny=dy/d;
+
+    const hi=conn&&conn.has(e.s)&&conn.has(e.t);
+    const dim=conn&&!hi;
+
+    const arL=7;
+    const x1=a.x+nx*a.r, y1=a.y+ny*a.r;
+    const x2=b.x-nx*(b.r+(S.arrows?arL:0)), y2=b.y-ny*(b.r+(S.arrows?arL:0));
+
+    cx.beginPath();
+    cx.moveTo(x1,y1);
+    cx.lineTo(x2,y2);
+    cx.strokeStyle=dim?'rgba(255,255,255,.05)':hi?'rgba(255,255,255,.6)':'rgba(255,255,255,.16)';
+    cx.lineWidth=(hi?.8:1)/(S.scale||1);
+    cx.stroke();
+
+    if(S.arrows&&d>20){
+      const px=-ny, py=nx;
+      const ax=b.x-nx*b.r, ay=b.y-ny*b.r;
+      cx.beginPath();
+      cx.moveTo(ax,ay);
+      cx.lineTo(ax-nx*arL+px*3.5, ay-ny*arL+py*3.5);
+      cx.lineTo(ax-nx*arL-px*3.5, ay-ny*arL-py*3.5);
+      cx.closePath();
+      cx.fillStyle=dim?'rgba(255,255,255,.05)':hi?'rgba(255,255,255,.6)':'rgba(255,255,255,.16)';
+      cx.fill();
+    }
+  }
+
+  // --- Nodes ---
+  for(const n of nodes){
+    if(!vis.has(n.id)) continue;
+    const c=clr(n.type);
+    const hi=n.id===S.hov||n.id===S.sel;
+    const dim=conn&&!conn.has(n.id);
+
+    cx.save();
+    cx.globalAlpha=dim?.18:1;
+
+    // Glow via shadowBlur
+    if(S.glow&&!dim){
+      cx.shadowBlur=hi?28:n.bw>.25?18:8;
+      cx.shadowColor=c;
+    }
+
+    cx.beginPath();
+    cx.arc(n.x,n.y,n.r+(hi?2.5:0),0,Math.PI*2);
+    cx.fillStyle=c;
+    cx.fill();
+    cx.shadowBlur=0;
+
+    // Inner sheen
+    cx.beginPath();
+    cx.arc(n.x,n.y-n.r*.22,n.r*.42,0,Math.PI*2);
+    cx.fillStyle='rgba(255,255,255,.14)';
+    cx.fill();
+
+    // Selected ring
+    if(n.id===S.sel){
+      cx.beginPath();
+      cx.arc(n.x,n.y,n.r+5,0,Math.PI*2);
+      cx.strokeStyle='rgba(255,255,255,.8)';
+      cx.lineWidth=1.5/S.scale;
+      cx.stroke();
+    }
+
+    cx.restore();
+
+    // Label
+    if(S.labels){
+      const fs=Math.min(13,Math.max(9,11/S.scale));
+      cx.font=`${fs}px -apple-system,sans-serif`;
+      cx.textAlign='center';
+      cx.textBaseline='top';
+      cx.fillStyle=dim?'rgba(160,160,160,.15)':hi?'rgba(255,255,255,.95)':'rgba(200,200,200,.78)';
+      cx.fillText(n.label,n.x,n.y+n.r+4/S.scale);
+    }
+  }
+
+  cx.restore();
+}
+
+// ── Mouse ─────────────────────────────────────────────────────────────────────
+let drag={on:false,id:null,ox:0,oy:0,mx:0,my:0};
+let pan={on:false,sx:0,sy:0,stx:0,sty:0};
+
+function w2c(cx2,cy2){return{x:(cx2-S.tx)/S.scale,y:(cy2-S.ty)/S.scale};}
+
+function hit(wx,wy){
+  const vis=new Set(nodes.filter(n=>S.filters[n.type]).map(n=>n.id));
+  for(let i=nodes.length-1;i>=0;i--){
+    const n=nodes[i];
+    if(!vis.has(n.id)) continue;
+    const dx=wx-n.x,dy=wy-n.y;
+    if(dx*dx+dy*dy<=(n.r+5)*(n.r+5)) return n;
+  }
+  return null;
+}
+
+cv.addEventListener('mousedown',e=>{
+  const r=cv.getBoundingClientRect();
+  const cx2=e.clientX-r.left, cy2=e.clientY-r.top;
+  const {x,y}=w2c(cx2,cy2);
+  const h=hit(x,y);
+  if(h){
+    drag={on:true,id:h.id,ox:cx2,oy:cy2,mx:cx2,my:cy2};
+    h.fix=true;
+    cv.classList.add('gb');
+  } else {
+    pan={on:true,sx:cx2,sy:cy2,stx:S.tx,sty:S.ty};
+    cv.classList.add('gb');
+  }
+});
+
+cv.addEventListener('mousemove',e=>{
+  const r=cv.getBoundingClientRect();
+  const cx2=e.clientX-r.left, cy2=e.clientY-r.top;
+
+  if(drag.on){
+    drag.mx=cx2; drag.my=cy2;
+    const {x,y}=w2c(cx2,cy2);
+    const n=nm[drag.id];
+    n.x=x; n.y=y; n.vx=0; n.vy=0;
+    if(S.alpha<.005) draw();
+    return;
+  }
+  if(pan.on){
+    S.tx=pan.stx+(cx2-pan.sx);
+    S.ty=pan.sty+(cy2-pan.sy);
+    if(S.alpha<.005) draw();
+    return;
+  }
+
+  // Hover
+  const {x,y}=w2c(cx2,cy2);
+  const h=hit(x,y);
+  const nid=h?h.id:null;
+  if(nid!==S.hov){S.hov=nid;if(S.alpha<.005)draw();}
+
+  // Tooltip
+  const tt=document.getElementById('tt');
+  if(h){
+    tt.style.display='block';
+    tt.style.left=Math.min(cx2+14,r.width-180)+'px';
+    tt.style.top=Math.max(cy2-10,5)+'px';
+    tt.innerHTML=`<b>${h.label}</b><br>
+      Tipo: <span style="color:${clr(h.type)}">${h.type}</span><br>
+      Betweenness: ${h.bw.toFixed(2)}<br>
+      In: ${h.ind} &nbsp;·&nbsp; Out: ${h.outd}<br>
+      <span style="color:#444;font-size:9.5px">${h.src}</span>`
+      +(h.desc?`<div style="margin-top:6px;padding-top:6px;border-top:1px solid #2a2a2a;color:#aaa;font-size:10px;line-height:1.45;max-width:200px">${h.desc}</div>`:'');
+  } else {
+    tt.style.display='none';
+  }
+});
+
+cv.addEventListener('mouseup',e=>{
+  if(drag.on){
+    const n=nm[drag.id];
+    n.fix=false;
+    const r=cv.getBoundingClientRect();
+    const cx2=e.clientX-r.left, cy2=e.clientY-r.top;
+    const moved=Math.abs(cx2-drag.ox)+Math.abs(cy2-drag.oy);
+    if(moved<6){
+      S.sel=(S.sel===drag.id)?null:drag.id;
+      updateDetail(); updatePrompt();
+      if(S.alpha<.005)draw();
+    }
+    n.vx=(drag.mx-drag.ox)*.05; n.vy=(drag.my-drag.oy)*.05;
+    drag={on:false};
+    if(S.alpha<.005){S.alpha=.15;raf=requestAnimationFrame(tick);}
+  }
+  pan.on=false;
+  cv.classList.remove('gb');
+});
+
+cv.addEventListener('mouseleave',()=>{
+  S.hov=null;
+  document.getElementById('tt').style.display='none';
+  if(S.alpha<.005)draw();
+});
+
+cv.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const r=cv.getBoundingClientRect();
+  const cx2=e.clientX-r.left, cy2=e.clientY-r.top;
+  const f=e.deltaY<0?1.13:1/1.13;
+  const ns=Math.max(.15,Math.min(5,S.scale*f));
+  S.tx=cx2-(cx2-S.tx)*(ns/S.scale);
+  S.ty=cy2-(cy2-S.ty)*(ns/S.scale);
+  S.scale=ns;
+  if(S.alpha<.005)draw();
+},{passive:false});
+
+// Zoom buttons
+document.getElementById('zi').onclick=()=>{S.scale=Math.min(5,S.scale*1.2);if(S.alpha<.005)draw();};
+document.getElementById('zo').onclick=()=>{S.scale=Math.max(.15,S.scale/1.2);if(S.alpha<.005)draw();};
+document.getElementById('zr').onclick=()=>{
+  S.scale=1;S.tx=cv.width/2;S.ty=cv.height/2;if(S.alpha<.005)draw();};
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+const fmap={fc:'CRITICAL',fi:'INPUT',fm:'INTERMEDIATE',fo:'OUTPUT'};
+Object.entries(fmap).forEach(([id,type])=>{
+  document.getElementById(id).addEventListener('change',e=>{
+    S.filters[type]=e.target.checked;reheat(.5);updatePrompt();});
+});
+
+document.getElementById('sc').addEventListener('input',e=>{
+  S.charge=+e.target.value;
+  document.getElementById('vc').textContent=e.target.value;reheat(.5);});
+document.getElementById('sd').addEventListener('input',e=>{
+  S.dist=+e.target.value;
+  document.getElementById('vd').textContent=e.target.value;reheat(.5);});
+document.getElementById('sg').addEventListener('input',e=>{
+  S.grav=+e.target.value;
+  document.getElementById('vg').textContent=e.target.value;reheat(.5);});
+
+document.getElementById('tl').addEventListener('change',e=>{S.labels=e.target.checked;if(S.alpha<.005)draw();});
+document.getElementById('ta').addEventListener('change',e=>{S.arrows=e.target.checked;if(S.alpha<.005)draw();});
+document.getElementById('tg').addEventListener('change',e=>{S.glow=e.target.checked;if(S.alpha<.005)draw();});
+
+document.getElementById('br').addEventListener('click',()=>{
+  nodes.forEach((n,i)=>{
+    const a=(i/nodes.length)*Math.PI*2, r=130+Math.random()*70;
+    n.x=Math.cos(a)*r; n.y=Math.sin(a)*r; n.vx=0; n.vy=0;
+  });
+  S.sel=null; reheat(1); updateDetail(); updatePrompt();
+});
+
+// Presets
+const PRESETS={
+  all: {filters:{CRITICAL:true,INPUT:true,INTERMEDIATE:true,OUTPUT:true},charge:380,dist:130,grav:18},
+  crit:{filters:{CRITICAL:true,INPUT:true,INTERMEDIATE:false,OUTPUT:true},charge:480,dist:160,grav:22},
+  flow:{filters:{CRITICAL:true,INPUT:true,INTERMEDIATE:true,OUTPUT:false},charge:320,dist:115,grav:15},
+  conv:{filters:{CRITICAL:true,INPUT:false,INTERMEDIATE:true,OUTPUT:true},charge:300,dist:120,grav:20},
+};
+document.querySelectorAll('.pb[data-p]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const p=PRESETS[b.dataset.p]; if(!p)return;
+    Object.assign(S.filters,p.filters);
+    S.charge=p.charge; S.dist=p.dist; S.grav=p.grav;
+    document.getElementById('sc').value=p.charge; document.getElementById('vc').textContent=p.charge;
+    document.getElementById('sd').value=p.dist;   document.getElementById('vd').textContent=p.dist;
+    document.getElementById('sg').value=p.grav;   document.getElementById('vg').textContent=p.grav;
+    document.getElementById('fc').checked=p.filters.CRITICAL;
+    document.getElementById('fi').checked=p.filters.INPUT;
+    document.getElementById('fm').checked=p.filters.INTERMEDIATE;
+    document.getElementById('fo').checked=p.filters.OUTPUT;
+    document.querySelectorAll('.pb[data-p]').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    reheat(.7); updatePrompt();
+  });
+});
+
+// ── Node detail ───────────────────────────────────────────────────────────────
+function updateDetail(){
+  const el=document.getElementById('nd');
+  if(!S.sel){el.classList.remove('v');return;}
+  el.classList.add('v');
+  const n=nm[S.sel];
+  document.getElementById('nd-name').textContent=n.label;
+  const t=document.getElementById('nd-type');
+  t.textContent=n.type; t.style.color=clr(n.type);
+  document.getElementById('db').textContent=n.bw.toFixed(2);
+  document.getElementById('di').textContent=n.ind;
+  document.getElementById('do').textContent=n.outd;
+  document.getElementById('ds').textContent=n.src;
+  const dd=document.getElementById('nd-desc');
+  if(n.desc){dd.textContent=n.desc;dd.style.display='block';}
+  else{dd.style.display='none';}
+}
+
+// ── Prompt ────────────────────────────────────────────────────────────────────
+function updatePrompt(){
+  const vis=new Set(nodes.filter(n=>S.filters[n.type]).map(n=>n.id));
+  const ve=edges.filter(e=>vis.has(e.s)&&vis.has(e.t)).length;
+  const crits=nodes.filter(n=>n.type==='CRITICAL'&&vis.has(n.id))
+    .sort((a,b)=>b.bw-a.bw)
+    .map(n=>`${n.label}(${n.bw.toFixed(2)})`).join(', ');
+  let txt=`Grafo VaR Ibovespa — ${vis.size} nós, ${ve} arestas visíveis. `;
+  if(crits) txt+=`Nós críticos: ${crits}. `;
+  if(S.sel){
+    const n=nm[S.sel];
+    const ins=edges.filter(e=>e.t===n.id&&vis.has(e.s)).map(e=>e.s);
+    const outs=edges.filter(e=>e.s===n.id&&vis.has(e.t)).map(e=>e.t);
+    txt+=`Selecionado: "${n.label}" [${n.type}, bw=${n.bw.toFixed(2)}]`;
+    if(ins.length)  txt+=` ← ${ins.join(', ')}`;
+    if(outs.length) txt+=` → ${outs.join(', ')}`;
+    txt+='. ';
+  }
+  const af=Object.entries(S.filters).filter(([,v])=>v).map(([k])=>k).join('+');
+  txt+=`Filtros: ${af}.`;
+  document.getElementById('pt').textContent=txt;
+}
+
+document.getElementById('cb').addEventListener('click',()=>{
+  navigator.clipboard.writeText(document.getElementById('pt').textContent);
+  const b=document.getElementById('cb');
+  b.textContent='Copiado!';
+  setTimeout(()=>b.textContent='Copiar',1500);
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener('resize',()=>{resize();if(S.alpha<.005)draw();});
+resize();
+updatePrompt();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
