@@ -40,13 +40,13 @@ compatibility: Requer o CLI graphify instalado e configurado (github.com/Graphif
 | Fase | Responde | Framework | Depende de | Pular quando |
 |---|---|---|---|---|
 | 1. Entendimento | O que é a demanda; o que já existe | Gap Analysis (As-Is/To-Be) + C4 Model + DoR (gate de entrada) | — | Nunca — base do processo |
-| 2. Execução | O que falta para produção; o que pode falhar | Production Readiness Review (PRR) + RAID log | Fase 1 | Objetivo é só entender o código |
+| 2. Preparação para Produção | O que falta para produção; o que pode falhar | Production Readiness Review (PRR) + RAID log | Fase 1 | Objetivo é só entender o código |
 | 3. Justificativa | Por que importa; quanto custa | Business Case + TCO | Fase 1 (obrigatório); Fase 2 (idealmente, para custo de infraestrutura) | Objetivo é só mapeamento técnico |
 | 4. Planejamento | Em que ordem executar | EAP (WBS) | Fase 1 (obrigatório); Fase 2 (idealmente); Fase 3 (opcional, só prioridade) | Nunca — obrigatória, como a Fase 1 |
 
 ## Persistência — evitar truncamento em sessões longas
 - Declarar instruções em texto não garante execução completa sem truncamento — ver salvaguardas abaixo
-- Conforme cada fase é executada, salvar o output em disco: `laudo-tecnico-output/01-entendimento.md`, `02-execucao.md`, `03-justificativa.md`, `04-planejamento.md` (conforme aplicável)
+- Conforme cada fase é executada, salvar o output em disco: `laudo-tecnico-output/01-entendimento.md`, `02-preparacao-producao.md`, `03-justificativa.md`, `04-planejamento.md` (conforme aplicável)
 - Não depender só da memória da conversa para consolidar ao final — reler os arquivos salvos ao montar o diagnóstico consolidado
 - Salvar o diagnóstico consolidado final em `laudo-tecnico-output/diagnostico-consolidado.md`
 
@@ -56,7 +56,7 @@ compatibility: Requer o CLI graphify instalado e configurado (github.com/Graphif
 3. Ler o arquivo de referência da fase antes de rodar seus prompts:
    - `references/00-setup-graphify.md` — só se o comando `graphify` não for encontrado
    - `references/01-entendimento.md` — demanda (To-Be), gate DoR, gap analysis (As-Is), arquitetura (C4)
-   - `references/02-execucao.md` — PRR (dev→hml→prod), RAID (riscos/dependências)
+   - `references/02-preparacao-producao.md` — PRR (dev→hml→prod), RAID (riscos/dependências)
    - `references/03-justificativa.md` — Business Case, TCO
    - `references/04-planejamento.md` — EAP (tarefas ordenadas, síntese das fases anteriores)
 4. Ordem de dependência: Fase 1 sempre primeiro; Fases 2 e 3 podem rodar em paralelo depois; Fase 4 requer apenas Fase 1 (obrigatório) e Fase 2 (idealmente) para iniciar — não é necessário aguardar a Fase 3, que só contribui prioridade opcional se já estiver disponível

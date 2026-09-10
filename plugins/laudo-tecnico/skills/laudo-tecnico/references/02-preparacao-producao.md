@@ -1,4 +1,4 @@
-# Fase 2 — Execução (dev → hml → prod)
+# Fase 2 — Preparação para Produção (dev → hml → prod)
 
 Frameworks: Production Readiness Review (PRR) para 2.1, RAID log para 2.2.
 Depende de: output da Fase 1 (1.2 e 1.3).

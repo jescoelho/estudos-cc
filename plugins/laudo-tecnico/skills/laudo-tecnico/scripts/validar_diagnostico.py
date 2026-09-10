@@ -211,7 +211,7 @@ def validar(caminho: str, fases_executadas: set[int]) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Valida a estrutura de um diagnóstico laudo-tecnico.")
     parser.add_argument("caminho", help="Caminho do arquivo markdown do diagnóstico consolidado")
-    parser.add_argument("--fase2", action="store_true", help="Fase 2 (Execução/PRR/RAID) foi executada")
+    parser.add_argument("--fase2", action="store_true", help="Fase 2 (Preparação para Produção/PRR/RAID) foi executada")
     parser.add_argument("--fase3", action="store_true", help="Fase 3 (Justificativa/Business Case/TCO) foi executada")
     args = parser.parse_args()
 

@@ -7,7 +7,7 @@ Plugin com uma única skill: **laudo-tecnico**.
 Recebe uma demanda técnica em texto (transcrição de reunião, e-mail, ticket, briefing) e cruza com um repositório de código para produzir um diagnóstico estruturado, cobrindo quatro fases:
 
 1. **Entendimento** — Gap Analysis (As-Is/To-Be) + C4 Model + gate de entrada (DoR)
-2. **Execução** — Production Readiness Review (PRR) + RAID log
+2. **Preparação para Produção** — Production Readiness Review (PRR) + RAID log
 3. **Justificativa** — Business Case + TCO
 4. **Planejamento** — EAP (WBS), sempre obrigatória
 
