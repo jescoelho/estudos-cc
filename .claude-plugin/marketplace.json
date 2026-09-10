@@ -1,0 +1,13 @@
+{
+  "name": "estudos-cc",
+  "owner": {
+    "name": "Jé"
+  },
+  "plugins": [
+    {
+      "name": "laudo-tecnico",
+      "source": "./plugins/laudo-tecnico",
+      "description": "Diagnóstico estruturado de repositórios herdados a partir de uma demanda em texto: Gap Analysis, C4, PRR, RAID, Business Case, TCO e EAP."
+    }
+  ]
+}
