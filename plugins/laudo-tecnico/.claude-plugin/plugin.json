@@ -1,8 +1,5 @@
 {
   "name": "laudo-tecnico",
-  "version": "0.1.0",
-  "description": "Recebe uma transcrição de reunião ou demanda técnica em texto e cruza com um repositório existente para produzir um diagnóstico completo: o que é pedido, o que já existe, o que falta, o caminho até produção e a ordem de execução.",
-  "author": {
-    "name": "Jé"
-  }
+  "version": "1.0.0",
+  "description": "Diagnóstico técnico de repositórios herdados: cruza demanda (transcrição/e-mail/ticket) com o código existente via graphify, produzindo Gap Analysis, Production Readiness Review, RAID log, Business Case, TCO e uma EAP executável. Inclui hooks que reforçam o uso do grafo em vez de leitura crua de arquivos e bloqueiam a finalização da sessão até o diagnóstico passar no gate de conclusão."
 }
