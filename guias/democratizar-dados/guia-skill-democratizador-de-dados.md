@@ -210,6 +210,145 @@ diferentes.
 
 ---
 
+## Expansão: comando guarda-chuva com múltiplas sub-skills
+
+Depois que a primeira sub-skill (`democratizador-dados:site-publico`) estiver
+validada com o caso da DTCC, o desenho evolui para um comando pai que
+classifica a fonte automaticamente e despacha para a sub-skill certa —
+em vez de você escolher manualmente qual rodar a cada nova fonte.
+
+### Cenários identificados e sub-skills correspondentes
+
+| Sub-skill | Cenário | Entrada exige credencial? |
+|---|---|---|
+| `site-publico` | Site com API oculta, descoberta via engenharia reversa de rede | Não, no caso conhecido (DTCC) |
+| `api-documentada` | API REST/GraphQL com documentação oficial (Swagger/OpenAPI) | Geralmente sim (API key) |
+| `portal-dados-abertos` | Portal estruturado (CKAN, Socrata, dados.gov.br) | Não |
+| `relatorio-pdf` | Dados publicados periodicamente em PDF (boletins, atas) | Não |
+| `scraping-html` | Site sem API por trás — só HTML renderizado | Não |
+| `arquivo-ftp-sftp` | Dados publicados via FTP/SFTP | Sim (usuário/senha ou chave) |
+| `feed-tempo-real` | WebSocket / streaming contínuo | Parcial (token de canal, às vezes) |
+
+### Esquema de entrada do comando pai
+
+O comando `democratizador-dados` recebe dois parâmetros — a URL é
+sempre obrigatória, a credencial nunca é passada em texto puro, só a
+referência de onde buscá-la:
+
+```
+url: <string, obrigatório>
+secret_ref: <string, opcional>   # nome do secret no Secrets Manager —
+                                  # nunca o valor da credencial em si
+```
+
+### Lógica de classificação (funil de decisão)
+
+A classificação roda em duas camadas, da verificação mais barata para
+a mais cara, seguida de um gate comum de credencial antes do dispatch:
+
+**Camada 1 — verificações estáticas (sem abrir navegador):**
+1. Esquema da URL é `ftp://`/`sftp://`? → `arquivo-ftp-sftp`
+2. URL aponta pra `.pdf` ou `Content-Type: application/pdf`? → `relatorio-pdf`
+3. Existe endpoint conhecido de portal de dados abertos (CKAN, Socrata, DCAT)? → `portal-dados-abertos`
+4. Existe endpoint conhecido de documentação de API (`/swagger.json`, `/openapi.json`)? → `api-documentada`
+
+**Camada 2 — discovery via navegador (só roda se a Camada 1 não bateu):**
+- Captura de rede encontra conexão WebSocket? → `feed-tempo-real`
+- Captura encontra chamadas xhr/fetch retornando JSON? → `site-publico`
+- Nenhuma chamada de dados por trás, só HTML? → `scraping-html`
+
+**Gate de credencial (roda depois de qualquer classificação acima):**
+- A sub-skill identificada exige `secret_ref`?
+  - Não exige, ou exige e foi fornecido → prossegue com o dispatch normalmente
+  - Exige e não foi fornecido → a skill **para** e pede a credencial, em vez de tentar prosseguir sem ela
+
+**Prompt:**
+
+```
+Quero expandir a skill "democratizador-dados" para funcionar como um
+comando guarda-chuva que classifica automaticamente o cenário de uma
+fonte de dado nova e despacha para a sub-skill correta, em vez de
+executar sempre a mesma lógica.
+
+Crie a estrutura de comando com sub-skills, seguindo o padrão
+"democratizador-dados:<sub-skill>", para os seguintes cenários:
+site-publico, api-documentada, portal-dados-abertos, relatorio-pdf,
+scraping-html, arquivo-ftp-sftp, feed-tempo-real.
+
+O comando pai recebe dois parâmetros: "url" (obrigatório) e
+"secret_ref" (opcional — referência de um secret no gerenciador de
+credenciais, nunca o valor da credencial em texto puro).
+
+Implemente a lógica de classificação em duas camadas, da verificação
+mais barata para a mais cara:
+
+CAMADA 1 (verificações estáticas, sem abrir navegador), nesta ordem:
+1. Esquema da URL é ftp:// ou sftp://? -> arquivo-ftp-sftp
+2. URL aponta para .pdf ou Content-Type é application/pdf? -> relatorio-pdf
+3. Existe endpoint conhecido de portal de dados abertos (padrão CKAN
+   como /api/3/action/package_list, Socrata, ou feed DCAT)? ->
+   portal-dados-abertos
+4. Existe endpoint conhecido de documentação de API (/swagger.json,
+   /openapi.json, /docs)? -> api-documentada
+
+CAMADA 2 (discovery via navegador, só roda se a Camada 1 não
+encontrou nada), reaproveitando a lógica de captura de rede que já
+implementamos na sub-skill site-publico:
+- Encontrou conexão WebSocket? -> feed-tempo-real
+- Encontrou chamadas xhr/fetch retornando JSON? -> site-publico
+- Não encontrou nenhuma chamada de dados por trás, só HTML? ->
+  scraping-html
+
+Depois de qualquer classificação acima, antes de despachar para a
+sub-skill, rode um gate comum: verifique se a sub-skill identificada
+exige credencial (arquivo-ftp-sftp e api-documentada exigem por
+padrão; feed-tempo-real pode exigir dependendo da fonte). Se exigir e
+"secret_ref" não tiver sido informado, pare a execução e me peça a
+credencial explicitamente, em vez de tentar prosseguir sem ela.
+
+Me mostre primeiro como ficaria essa lógica de classificação
+documentada no SKILL.md do comando pai, antes de implementar
+qualquer sub-skill nova.
+```
+
+### Ordem de priorização de desenvolvimento
+
+Nem toda sub-skill vale a pena construir na mesma hora — a ordem
+abaixo equilibra três critérios: o que já está pronto, o que valida
+mais barato se o design está certo, e o que tem mais valor dado o seu
+domínio (dados regulatórios e de mercado, contexto brasileiro).
+
+1. **`site-publico`** — já em construção, validado com o caso DTCC.
+   Vira o template de referência para as demais.
+2. **`api-documentada`** — a mais simples de implementar a seguir.
+   Como o contrato já é conhecido de antemão, ela testa se a skill
+   sabe **pular** as fases de discovery/hipóteses quando não são
+   necessárias, em vez de sempre executá-las em sequência — um teste
+   de design mais barato que construir um cenário totalmente novo do
+   zero.
+3. **`portal-dados-abertos`** — complexidade moderada (o portal já
+   expõe metadados formais, não precisa de engenharia reversa), e
+   alta frequência esperada no seu domínio — dados.gov.br e portais
+   estaduais de transparência são fontes recorrentes em contexto
+   regulatório brasileiro.
+4. **`relatorio-pdf`** — mais complexa (exige parsing de
+   tabela/OCR), mas muito comum em fontes regulatórias brasileiras
+   (atas do Copom, boletins Bacen/CVM) — vale o investimento antes
+   das duas últimas, que são mais raras no seu contexto.
+5. **`scraping-html`** — cenário de "sobra" (quando nada mais se
+   aplica); construir depois das anteriores garante que ela só entra
+   em jogo quando as fontes mais estruturadas já foram descartadas.
+6. **`arquivo-ftp-sftp`** — mais comum em reguladores legados; baixa
+   prioridade a menos que já exista uma demanda concreta esperando
+   por essa fonte.
+7. **`feed-tempo-real`** — arquitetura mais diferente das demais (
+   conexão persistente, não request/response), maior mudança
+   estrutural no pipeline gerado. Deixar por último minimiza o risco
+   de essa complexidade contaminar o design das sub-skills mais
+   simples.
+
+---
+
 ## Regra de segurança para incluir desde o rascunho inicial
 
 Vale adicionar isso já no Passo 3, ou revisar depois — mas não deixe
