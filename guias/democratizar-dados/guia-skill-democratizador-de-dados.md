@@ -311,6 +311,69 @@ documentada no SKILL.md do comando pai, antes de implementar
 qualquer sub-skill nova.
 ```
 
+### Componentes Python vs. instrução em markdown
+
+Nem toda a lógica acima deveria virar só texto no SKILL.md. As partes
+determinísticas — a Camada 1 inteira, a captura de rede da Camada 2 e
+o gate de credencial — ganham em confiabilidade e custo de token
+sendo scripts reutilizáveis, em vez de reescritas via tool calls a
+cada execução. O que continua sendo instrução em markdown é só a
+parte que exige julgamento: qual hipótese testar na Fase 2 de cada
+sub-skill, e como interpretar um resultado ambíguo — a mesma
+separação entre dado bruto e interpretação que você já usa no
+nota-tecnica.
+
+| Componente | Onde vive | Por quê |
+|---|---|---|
+| Camada 1 (checks estáticos) | `scripts/classify_scenario.py` | Testes booleanos fixos — mesma resposta sempre |
+| Captura de rede (Camada 2) | `scripts/discovery.py` | Procedimento idêntico a cada execução |
+| Rotinas de teste de hipótese | `scripts/hypothesis_toolkit.py` | A rotina é fixa; a escolha de qual hipótese testar continua sendo julgamento, documentado no SKILL.md |
+| Gate de credencial | `scripts/credential_gate.py` | Lógica booleana trivial |
+| Interpretação e geração do pipeline final | SKILL.md + templates | Depende do schema de cada fonte — não é repetível ao pé da letra |
+
+Se nenhum script classificar a fonte com confiança, o processo volta
+para investigação manual via ferramentas brutas — essa exceção deve
+ficar documentada no SKILL.md, não escondida dentro do script.
+
+**Prompt:**
+
+```
+Quero que a skill "democratizador-dados" tenha componentes Python
+reutilizáveis para as partes mecânicas e determinísticas do processo,
+em vez de reescrever essa lógica via instrução em markdown a cada
+execução. Crie uma pasta scripts/ dentro da skill com:
+
+1. classify_scenario.py — implementa a Camada 1 do funil de
+   classificação que já documentamos no SKILL.md do comando pai (os
+   checks de protocolo, extensão e endpoints conhecidos). Se nenhum
+   check bater, retorna explicitamente "não classificado" para a
+   Camada 2 assumir.
+
+2. discovery.py — captura requisições de rede via Playwright para uma
+   URL dada, reaproveitando a mesma lógica já usada na sub-skill
+   site-publico, e retorna um resumo estruturado em JSON, sem
+   interpretação — só dado bruto, incluindo se foi detectada conexão
+   WebSocket.
+
+3. hypothesis_toolkit.py — funções reutilizáveis de teste empírico
+   (ex: comparar contagem/timestamps de duas consultas ao mesmo
+   endpoint com intervalo, checar se uma resposta é paginada). A
+   escolha de qual hipótese testar continua sendo decisão tomada via
+   instrução em markdown no SKILL.md de cada sub-skill, não hardcoded
+   no script.
+
+4. credential_gate.py — implementa o gate de credencial já
+   documentado: checa se a sub-skill classificada exige secret_ref e
+   se ele foi fornecido.
+
+Atualize o SKILL.md do comando pai para descrever QUANDO chamar cada
+script e COMO interpretar o resultado, sem duplicar a lógica que já
+está descrita dentro dos próprios scripts. Documente também que, se
+classify_scenario.py e discovery.py não conseguirem classificar a
+fonte com confiança, o processo volta para investigação manual via
+ferramentas brutas, em vez de forçar uma classificação incerta.
+```
+
 ### Ordem de priorização de desenvolvimento
 
 Nem toda sub-skill vale a pena construir na mesma hora — a ordem
