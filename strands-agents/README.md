@@ -12,8 +12,9 @@ Material de estudo em português sobre **tools** (as "ferramentas" que um agente
 | 4 | Executores de tools | [docs/topico-4-executores-de-tools.md](docs/topico-4-executores-de-tools.md) | `exercicios/exercicio_t4.py` |
 | 5 | Agentes como tools | [docs/topico-5-agentes-como-tools.md](docs/topico-5-agentes-como-tools.md) | `exercicios/exercicio_t5.py` |
 | 6 | Tools prontas | [docs/topico-6-tools-prontas.md](docs/topico-6-tools-prontas.md) | `exercicios/exercicio_t6.py` |
+| 7 | Tools via MCP | [docs/topico-7-tools-via-mcp.md](docs/topico-7-tools-via-mcp.md) | `exercicios/t7_mcp/` (`servidor_mcp.py`, `primeiro_mcp.py`, `exercicio_t7.py`) |
 
-Próximos tópicos planejados: tools via MCP, estado nas tools, boas práticas de design de tools.
+Próximos tópicos planejados: estado nas tools, boas práticas de design de tools.
 
 ## Como rodar
 
@@ -34,6 +35,7 @@ python exercicio_t1.py
 
 - Os exercícios 1 a 5 **não precisam de credenciais da AWS nem de internet**: os tópicos 4 e 5 usam um "modelo de mentira" (um modelo falso que só devolve pedidos de tools prontos) para testar a orquestração.
 - Alguns scripts terminam de propósito com um erro (por exemplo, chamar uma tool que não existe). Isso está explicado em cada documento.
+- No tópico 7, os três arquivos de `t7_mcp/` ficam na mesma pasta e o exercício roda de dentro dela. Testado com `mcp` 2.1.1 e 1.30.0.
 - O tópico 6 grava um arquivo (`nota_t6.txt`) e pede confirmação antes; responda `y`.
 - `t1_tools_exemplo/` mostra a pasta `./tools/` carregada automaticamente (`triplo.py` precisa ficar numa pasta chamada `tools`, ao lado de onde você roda o Python).
 
