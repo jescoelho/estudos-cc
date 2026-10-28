@@ -1,17 +1,17 @@
 # Estudo guiado: tools no Strands Agents
 
-Material de estudo em português sobre **tools** (as "ferramentas" que um agente pode usar) no [Strands Agents](https://strandsagents.com). Cada tópico é um documento didático (mínimo primeiro, aprofundamento opcional, exercício guiado com saída esperada, glossário e fontes) e tem um script de exercício nesta pasta.
+Material de estudo em português sobre **tools** (as "ferramentas" que um agente pode usar) no [Strands Agents](https://strandsagents.com). Cada tópico é um documento didático em markdown (pasta `docs/`) (mínimo primeiro, aprofundamento opcional, exercício guiado com saída esperada, glossário e fontes) e tem um script de exercício nesta pasta.
 
 ## Ordem de estudo
 
-| # | Tópico | Documento | Script |
-|---|--------|-----------|--------|
-| 1 | Criar, registrar e chamar tools | [Tópico 1](https://claude.ai/artifact/HWz8fKjsbGTR1AtH76mo8Z) | `exercicios/exercicio_t1.py` (+ `t1_tools_exemplo/`) |
-| 2 | Como o modelo lê a tool (descrição, parâmetros, erros), tools assíncronas e contexto | [Tópico 2](https://claude.ai/artifact/LxxHcAxidxY4GkWFRw5TYz) | `exercicios/exercicio_t2.py` |
-| 3 | Resultado e erros de uma tool (o "recibo") | [Tópico 3](https://claude.ai/artifact/TpShr5Jn4uohmSL483KnHo) | `exercicios/exercicio_t3.py` |
-| 4 | Execução de várias tools (concorrente x sequencial) | [Tópico 4](https://claude.ai/artifact/5MskwbRXfUMfk8BYeSDPcA) | `exercicios/exercicio_t4.py` |
-| 5 | Agentes como tools | [Tópico 5](https://claude.ai/artifact/SpCPqyAnnMwzSpViTFT46G) | `exercicios/exercicio_t5.py` |
-| 6 | Tools prontas (o que está e o que não está no escopo de cada uma) | [Tópico 6](https://claude.ai/artifact/JMTU9z9hXY7gLPfbTdH5vv) | `exercicios/exercicio_t6.py` |
+| # | Tópico | Documento (markdown) | Script |
+|---|--------|----------------------|--------|
+| 1 | Anexar e invocar tools | [docs/topico-1-anexar-e-invocar-tools.md](docs/topico-1-anexar-e-invocar-tools.md) | `exercicios/exercicio_t1.py` (+ `t1_tools_exemplo/`) |
+| 2 | Criar tools customizadas | [docs/topico-2-criar-tools-customizadas.md](docs/topico-2-criar-tools-customizadas.md) | `exercicios/exercicio_t2.py` |
+| 3 | Formato do resultado de uma tool | [docs/topico-3-formato-do-resultado-de-uma-tool.md](docs/topico-3-formato-do-resultado-de-uma-tool.md) | `exercicios/exercicio_t3.py` |
+| 4 | Executores de tools | [docs/topico-4-executores-de-tools.md](docs/topico-4-executores-de-tools.md) | `exercicios/exercicio_t4.py` |
+| 5 | Agentes como tools | [docs/topico-5-agentes-como-tools.md](docs/topico-5-agentes-como-tools.md) | `exercicios/exercicio_t5.py` |
+| 6 | Tools prontas | [docs/topico-6-tools-prontas.md](docs/topico-6-tools-prontas.md) | `exercicios/exercicio_t6.py` |
 
 Próximos tópicos planejados: tools via MCP, estado nas tools, boas práticas de design de tools.
 
