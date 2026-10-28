@@ -6,9 +6,9 @@ Material de estudo em português sobre **tools** (as "ferramentas" que um agente
 
 | # | Tópico | Documento | Script |
 |---|--------|-----------|--------|
-| 1 | O que é uma tool e como criar a primeira | [Tópico 1](https://claude.ai/artifact/HWz8fKjsbGTR1AtH76mo8Z) | `exercicios/exercicio_t1.py` (+ `t1_tools_exemplo/`) |
-| 2 | Como o modelo "enxerga" a tool (descrição, parâmetros, erros) | [Tópico 2](https://claude.ai/artifact/LxxHcAxidxY4GkWFRw5TYz) | `exercicios/exercicio_t2.py` |
-| 3 | Tools assíncronas e contexto da tool | [Tópico 3](https://claude.ai/artifact/TpShr5Jn4uohmSL483KnHo) | `exercicios/exercicio_t3.py` |
+| 1 | Criar, registrar e chamar tools | [Tópico 1](https://claude.ai/artifact/HWz8fKjsbGTR1AtH76mo8Z) | `exercicios/exercicio_t1.py` (+ `t1_tools_exemplo/`) |
+| 2 | Como o modelo lê a tool (descrição, parâmetros, erros), tools assíncronas e contexto | [Tópico 2](https://claude.ai/artifact/LxxHcAxidxY4GkWFRw5TYz) | `exercicios/exercicio_t2.py` |
+| 3 | Resultado e erros de uma tool (o "recibo") | [Tópico 3](https://claude.ai/artifact/TpShr5Jn4uohmSL483KnHo) | `exercicios/exercicio_t3.py` |
 | 4 | Execução de várias tools (concorrente x sequencial) | [Tópico 4](https://claude.ai/artifact/5MskwbRXfUMfk8BYeSDPcA) | `exercicios/exercicio_t4.py` |
 | 5 | Agentes como tools | [Tópico 5](https://claude.ai/artifact/SpCPqyAnnMwzSpViTFT46G) | `exercicios/exercicio_t5.py` |
 | 6 | Tools prontas (o que está e o que não está no escopo de cada uma) | [Tópico 6](https://claude.ai/artifact/JMTU9z9hXY7gLPfbTdH5vv) | `exercicios/exercicio_t6.py` |
